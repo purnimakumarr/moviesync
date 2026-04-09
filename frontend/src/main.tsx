@@ -9,7 +9,7 @@ import { store } from "./redux/store";
 import { Provider } from "react-redux";
 import { CssBaseline } from "@mui/material";
 import { AuthProvider } from "react-oidc-context";
-import { cognitoAuthConfig } from "./auth/authUtils";
+import { oauthConfig } from "./auth/authUtils";
 
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -19,7 +19,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <I18nextProvider i18n={i18n}>
           <Provider store={store}>
-            <AuthProvider {...cognitoAuthConfig}>
+            <AuthProvider {...oauthConfig}>
               <App />
             </AuthProvider>
           </Provider>

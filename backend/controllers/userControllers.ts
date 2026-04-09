@@ -10,7 +10,7 @@ const IPAPI_URL = process.env.IPAPI_URL as string;
 
 export const createUser = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { userID } = req.body;
@@ -33,7 +33,7 @@ export const createUser = async (
          pgp_sym_decrypt(country::bytea, $1) AS "country"
        FROM users_yn085 
        WHERE user_id = $2`,
-      [encryptionKey, userIDHash]
+      [encryptionKey, userIDHash],
     );
 
     if (existingUser.rows.length > 0) {
@@ -51,7 +51,7 @@ export const createUser = async (
         pgp_sym_decrypt(phone::bytea, $2) AS "phone",
         pgp_sym_decrypt(dob::bytea, $2) AS "dob",
         pgp_sym_decrypt(country::bytea, $2) AS country`,
-      [userIDHash, encryptionKey]
+      [userIDHash, encryptionKey],
     );
 
     res.status(200).json({ message: 'User created', user: newUser.rows[0] });
@@ -63,7 +63,7 @@ export const createUser = async (
 
 export const updateUser = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const {
@@ -116,7 +116,7 @@ export const updateUser = async (
         country,
         encryptionKey,
         userIDHash,
-      ]
+      ],
     );
 
     res
@@ -148,7 +148,7 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
          pgp_sym_decrypt(dob::bytea, $1) AS "dob" 
        FROM users_yn085 
        WHERE user_id = $2`,
-      [encryptionKey, userIDHash]
+      [encryptionKey, userIDHash],
     );
 
     if (result.rows.length === 0) {

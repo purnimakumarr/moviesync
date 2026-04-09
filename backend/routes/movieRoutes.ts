@@ -46,28 +46,28 @@ router.post(
   movieActionLimiter,
   verifyToken,
   decryptMiddleware,
-  addFavourite
+  addFavourite,
 );
 router.post(
   '/favourite/list',
   movieActionLimiter,
   verifyToken,
   decryptMiddleware,
-  getFavourites
+  getFavourites,
 );
 router.post(
   '/favourite/delete',
   movieActionLimiter,
   verifyToken,
   decryptMiddleware,
-  removeFavourite
+  removeFavourite,
 );
 router.post(
   '/favourite/clear',
   movieActionLimiter,
   verifyToken,
   decryptMiddleware,
-  clearAllFavourites
+  clearAllFavourites,
 );
 
 /**
@@ -78,21 +78,21 @@ router.post(
   movieActionLimiter,
   verifyToken,
   decryptMiddleware,
-  addWatchLater
+  addWatchLater,
 );
 router.post(
   '/watch-later/list',
   movieActionLimiter,
   verifyToken,
   decryptMiddleware,
-  getWatchLater
+  getWatchLater,
 );
 router.post(
   '/watch-later/clear',
   movieActionLimiter,
   verifyToken,
   decryptMiddleware,
-  clearAllWatchLater
+  clearAllWatchLater,
 );
 
 /**
@@ -103,21 +103,21 @@ router.post(
   movieActionLimiter,
   verifyToken,
   decryptMiddleware,
-  addWatched
+  addWatched,
 );
 router.post(
   '/watched/list',
   movieActionLimiter,
   verifyToken,
   decryptMiddleware,
-  getWatched
+  getWatched,
 );
 router.post(
   '/watched/clear',
   movieActionLimiter,
   verifyToken,
   decryptMiddleware,
-  clearAllWatched
+  clearAllWatched,
 );
 
 /**
@@ -128,7 +128,7 @@ router.post(
   movieActionLimiter,
   verifyToken,
   decryptMiddleware,
-  deleteWatch
+  deleteWatch,
 );
 
 export default router;

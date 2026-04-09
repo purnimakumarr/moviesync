@@ -1,14 +1,14 @@
 import { User, WebStorageStateStore } from 'oidc-client-ts';
 
-const AUTHORITY = import.meta.env.VITE_COGNITO_AUTHORITY;
-const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
-const CGONITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN;
+const AUTHORITY = import.meta.env.VITE_OAUTH_AUTHORITY;
+const CLIENT_ID = import.meta.env.VITE_OAUTH_CLIENT_ID;
+const OAUTH_LOGOUT_URL = import.meta.env.VITE_OAUTH_LOGOUT_URL;
 const FRONTEND_URL =
   import.meta.env.MODE === 'production'
     ? import.meta.env.VITE_FRONTEND_URL_PROD
     : import.meta.env.VITE_FRONTEND_URL_DEV;
 
-export const cognitoAuthConfig = {
+export const oauthConfig = {
   authority: AUTHORITY,
   client_id: CLIENT_ID,
   redirect_uri: FRONTEND_URL,
@@ -23,15 +23,15 @@ export const cognitoAuthConfig = {
 export const signOutRedirect = () => {
   const clientId = CLIENT_ID;
   const logoutUri = FRONTEND_URL;
-  const cognitoDomain = CGONITO_DOMAIN;
-  window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(
-    logoutUri
+  const oauthLogoutUrl = OAUTH_LOGOUT_URL;
+  window.location.href = `${oauthLogoutUrl}?client_id=${clientId}&returnTo=${encodeURIComponent(
+    logoutUri,
   )}`;
 };
 
 export const getUser = () => {
   const oidcStorage = localStorage.getItem(
-    `oidc.user:${AUTHORITY}:${CLIENT_ID}`
+    `oidc.user:${AUTHORITY}:${CLIENT_ID}`,
   );
 
   if (!oidcStorage) {

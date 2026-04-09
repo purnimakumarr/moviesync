@@ -1,19 +1,30 @@
-import { CognitoJwtVerifier } from 'aws-jwt-verify';
+import jwt from 'jsonwebtoken';
+import { JwksClient } from 'jwks-rsa';
 import { Request, Response, NextFunction } from 'express';
 
-const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID;
-const CLIENT_ID = process.env.COGNITO_CLIENT_ID;
+const OAUTH_ISSUER = process.env.OAUTH_ISSUER;
+const OAUTH_AUDIENCE = process.env.OAUTH_AUDIENCE;
+const OAUTH_JWKS_URI = process.env.OAUTH_JWKS_URI;
 
-const verifier = CognitoJwtVerifier.create({
-  userPoolId: USER_POOL_ID!,
-  tokenUse: 'access',
-  clientId: CLIENT_ID!,
+const client = new (JwksClient as any)({
+  jwksUri: OAUTH_JWKS_URI!,
 });
+
+const getKey = (header: any, callback: (err: any, key?: string) => void) => {
+  client.getSigningKey(header.kid, (err: any, key: any) => {
+    if (err) {
+      callback(err);
+      return;
+    }
+    const signingKey = key?.publicKey || key?.rsaPublicKey;
+    callback(null, signingKey);
+  });
+};
 
 const verifyToken = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   const token = req.headers.authorization?.split(' ')[1];
 
@@ -23,19 +34,38 @@ const verifyToken = async (
   }
 
   try {
-    await verifier.verify(token);
-    next();
+    jwt.verify(
+      token,
+      getKey,
+      {
+        algorithms: ['RS256'],
+        issuer: OAUTH_ISSUER,
+        audience: OAUTH_AUDIENCE,
+      },
+      (err: any, decoded: any) => {
+        if (err) {
+          console.error('Token verification error:', err);
+
+          if (err.name === 'TokenExpiredError') {
+            res.status(401).json({
+              success: false,
+              error: 'Token has expired',
+            });
+            return;
+          }
+
+          res.status(401).json({
+            success: false,
+            error: 'Invalid or unauthorized token',
+          });
+          return;
+        }
+
+        next();
+      },
+    );
   } catch (error: any) {
     console.error('Token verification error:', error);
-
-    if (error.name === 'TokenExpiredError') {
-      res.status(401).json({
-        success: false,
-        error: 'Token has expired',
-      });
-      return;
-    }
-
     res.status(401).json({
       success: false,
       error: 'Invalid or unauthorized token',
