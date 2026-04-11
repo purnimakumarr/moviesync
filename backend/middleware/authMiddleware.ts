@@ -7,7 +7,7 @@ const OAUTH_AUDIENCE = process.env.OAUTH_AUDIENCE;
 const OAUTH_JWKS_URI = process.env.OAUTH_JWKS_URI;
 
 const client = new (JwksClient as any)({
-  jwksUri: OAUTH_JWKS_URI!,
+  jwksUri: OAUTH_JWKS_URI,
 });
 
 const getKey = (header: any, callback: (err: any, key?: string) => void) => {
