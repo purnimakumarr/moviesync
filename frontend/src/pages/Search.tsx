@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../redux/store';
 import { useTranslation } from 'react-i18next';
@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Typography, Box, useTheme } from '@mui/material';
 import MovieIcon from "@mui/icons-material/Movie";
 
-import Notification from '../components/common/Notification';
+import { useNotification } from '../components/common/Notification';
 import BackButton from '../components/common/BackButton';
 import SearchBar from '../components/search/SearchBar';
 import CardSkeleton from '../components/search/CardSkeleton';
@@ -21,16 +21,19 @@ function Search() {
 
     const { search: movies, totalPages, loading, error, page, title, year, type } = useSelector((store: RootState) => store.movies);
     const dispatch = useDispatch<AppDispatch>();
-    const [open, setOpen] = useState(false);
+    const { notify } = useNotification();
 
     const { t } = useTranslation();
     const theme = useTheme();
 
     useEffect(() => {
         if (error) {
-            setOpen(true);
+            notify({
+                message: i18next.exists(error) ? t(error) : error,
+                severity: 'error',
+            });
         }
-    }, [error])
+    }, [error, notify, t])
 
     const handleSearch = async function () {
         dispatch(fetchMovies())
@@ -77,11 +80,6 @@ function Search() {
                         {t("search.placeholder_text")}
                     </Typography>
                 </Box>
-            }
-
-            {
-                error &&
-                <Notification open={open} message={i18next.exists(error) ? t(error) : error} severity='error' handleClose={() => setOpen(false)} />
             }
 
             {loading && <CardSkeleton count={10} />}

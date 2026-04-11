@@ -86,7 +86,11 @@ export const clearFavourites = createAsyncThunk<void, string | null>(
 const favouritesSlice = createSlice({
   name: 'favourites',
   initialState,
-  reducers: {},
+  reducers: {
+    clearError: (state) => {
+      state.error = null;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchFavourites.pending, (state) => {
@@ -140,5 +144,7 @@ const favouritesSlice = createSlice({
       });
   },
 });
+
+export const { clearError } = favouritesSlice.actions;
 
 export default favouritesSlice.reducer;

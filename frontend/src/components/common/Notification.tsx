@@ -1,30 +1,54 @@
-import { Alert, AlertColor, Box, Snackbar } from "@mui/material"
+import { Toaster, toast } from 'sonner';
+import { X } from 'lucide-react';
 
-type NotificationProps = {
+type NotificationSeverity = "error" | "warning" | "info" | "success";
+
+type NotificationToast = {
     message: string;
-    severity: AlertColor;
-    open: boolean;
-    handleClose: () => void;
-}
+    severity: NotificationSeverity;
+};
 
-const Notification = function ({ message, severity, open, handleClose }: NotificationProps) {
-    const vertical = 'bottom', horizontal = 'center';
+type NotificationContextValue = {
+    notify: (toast: NotificationToast) => void;
+};
 
-    const isValidSeverity = (value: string): value is AlertColor =>
-        ["error", "warning", "info", "success"].includes(value);
+const notify = ({ message, severity }: NotificationToast) => {
+    const action = (
+        <button onClick={() => toast.dismiss()} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <X size={16} />
+        </button>
+    );
 
-    return <Box sx={{ width: 'fit-content' }}>
-        <Snackbar sx={{ mb: '5rem' }} anchorOrigin={{ vertical, horizontal }} key={vertical + horizontal} open={open} autoHideDuration={8000} onClose={handleClose}>
-            <Alert
-                onClose={handleClose}
-                severity={isValidSeverity(severity) ? severity : "info"}
-                variant="filled"
-                sx={{ width: '100%' }}
-            >
-                {message}
-            </Alert>
-        </Snackbar>
-    </Box>
-}
+    switch (severity) {
+        case "error":
+            toast.error(message, { action, duration: Infinity });
+            break;
+        case "warning":
+            toast.warning(message, { action, duration: Infinity });
+            break;
+        case "success":
+            toast.success(message, { action, duration: Infinity });
+            break;
+        case "info":
+        default:
+            toast.info(message, { action, duration: Infinity });
+            break;
+    }
+};
 
-export default Notification;
+export const useNotification = (): NotificationContextValue => {
+    return { notify };
+};
+
+export const NotificationToaster = () => {
+    return (
+        <Toaster
+            position="top-right"
+            offset="88px"
+            closeButton={false}
+            richColors
+        />
+    );
+};
+
+export default NotificationToaster;

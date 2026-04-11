@@ -10,9 +10,9 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 
 import MovieCard from '../components/common/MovieCard';
 import BackButton from '../components/common/BackButton';
-import Notification from '../components/common/Notification';
+import { useNotification } from '../components/common/Notification';
 
-import { clearWatched } from '../redux/features/watchSlice';
+import { clearWatched, clearErrorWatched } from '../redux/features/watchSlice';
 
 import i18next from 'i18next';
 
@@ -23,18 +23,22 @@ const Watched = () => {
     const { watched, loadingWatched, errorWatched } = useSelector((state: RootState) => state.watch);
     const numWatched = useSelector((state: RootState) => Object.keys(state.watch.watched).length);
 
-    const [open, setOpen] = useState(false);
     const dispatch = useDispatch<AppDispatch>();
     const navigate = useNavigate();
     const theme = useTheme();
+    const { notify } = useNotification();
 
     const { t } = useTranslation();
 
     useEffect(() => {
         if (errorWatched) {
-            setOpen(true);
+            notify({
+                message: i18next.exists(errorWatched) ? t(errorWatched) : errorWatched,
+                severity: 'error',
+            });
+            dispatch(clearErrorWatched());
         }
-    }, [errorWatched]);
+    }, [errorWatched, notify, t, dispatch]);
 
     const handleConfirmClear = () => {
         setOpenConfirmModal(false);
@@ -57,8 +61,6 @@ const Watched = () => {
                     <Button onClick={() => setOpenConfirmModal(true)} variant='contained' sx={{ height: 'fit-content' }}>{t("watched.clear_watched")}</Button>
                 }
             </Stack>
-
-            {errorWatched && <Notification open={open} message={i18next.exists(errorWatched) ? t(errorWatched) : errorWatched} severity='error' handleClose={() => setOpen(false)} />}
 
             {
                 loadingWatched &&

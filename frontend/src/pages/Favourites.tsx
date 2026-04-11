@@ -8,11 +8,11 @@ import { Typography, Stack, Button, Dialog, DialogTitle, DialogContent, DialogCo
 import Grid from '@mui/material/Grid2';
 import FavoriteIcon from "@mui/icons-material/Favorite";
 
-import Notification from '../components/common/Notification';
+import { useNotification } from '../components/common/Notification';
 import MovieCard from '../components/common/MovieCard';
 import BackButton from '../components/common/BackButton';
 
-import { clearFavourites } from '../redux/features/favouritesSlice';
+import { clearFavourites, clearError } from '../redux/features/favouritesSlice';
 
 import i18next from 'i18next';
 
@@ -23,17 +23,21 @@ const Favourites = () => {
     const { details: favourites, loading, error } = useSelector((state: RootState) => state.favourites);
     const numFavourites = useSelector((state: RootState) => Object.keys(state.favourites.details).length);
     const dispatch = useDispatch<AppDispatch>();
+    const { notify } = useNotification();
 
     const [openConfirmModal, setOpenConfirmModal] = useState<boolean>(false);
-    const [open, setOpen] = useState(false);
     const navigate = useNavigate();
     const { t } = useTranslation();
 
     useEffect(() => {
         if (error) {
-            setOpen(true);
+            notify({
+                message: i18next.exists(error) ? t(error) : error,
+                severity: 'error',
+            });
+            dispatch(clearError());
         }
-    }, [error])
+    }, [error, notify, t, dispatch])
 
     const handleConfirmClear = function () {
         setOpenConfirmModal(false);
@@ -61,8 +65,6 @@ const Favourites = () => {
                     }}>{t("favourites.clear_favourites")}</Button>
                 }
             </Stack>
-
-            {error && <Notification open={open} message={i18next.exists(error) ? t(error) : error} severity='error' handleClose={() => setOpen(false)} />}
 
             {loading && <Box display="flex" justifyContent="center" alignItems="center" height="50vh">
                 <CircularProgress color="primary" />

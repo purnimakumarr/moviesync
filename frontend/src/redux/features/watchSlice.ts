@@ -154,7 +154,14 @@ export const clearWatched = createAsyncThunk<void, string | null>(
 const watchSlice = createSlice({
   name: 'watch',
   initialState,
-  reducers: {},
+  reducers: {
+    clearErrorWatchLater: (state) => {
+      state.errorWatchLater = null;
+    },
+    clearErrorWatched: (state) => {
+      state.errorWatched = null;
+    },
+  },
   extraReducers: (builder) => {
     builder
       // fetch watch later
@@ -281,5 +288,7 @@ const watchSlice = createSlice({
       });
   },
 });
+
+export const { clearErrorWatchLater, clearErrorWatched } = watchSlice.actions;
 
 export default watchSlice.reducer;

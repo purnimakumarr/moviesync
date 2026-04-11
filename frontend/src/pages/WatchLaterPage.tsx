@@ -9,11 +9,11 @@ import { Typography, Stack, Button, Dialog, DialogTitle, DialogContent, DialogCo
 import Grid from '@mui/material/Grid2';
 import WatchLaterIcon from "@mui/icons-material/WatchLater";
 
-import Notification from '../components/common/Notification';
+import { useNotification } from '../components/common/Notification';
 import BackButton from '../components/common/BackButton';
 import MovieCard from '../components/common/MovieCard';
 
-import { clearWatchLater } from '../redux/features/watchSlice';
+import { clearWatchLater, clearErrorWatchLater } from '../redux/features/watchSlice';
 
 import i18next from 'i18next';
 
@@ -23,18 +23,22 @@ const WatchLaterPage = () => {
     const [openConfirmModal, setOpenConfirmModal] = useState<boolean>(false);
     const { watchLater, loadingWatchLater, errorWatchLater } = useSelector((state: RootState) => state.watch);
     const numWatchLater = useSelector((state: RootState) => Object.keys(state.watch.watchLater).length);
-    const [open, setOpen] = useState(false);
     const dispatch = useDispatch<AppDispatch>();
     const navigate = useNavigate();
     const theme = useTheme();
+    const { notify } = useNotification();
 
     const { t } = useTranslation();
 
     useEffect(() => {
         if (errorWatchLater) {
-            setOpen(true);
+            notify({
+                message: i18next.exists(errorWatchLater) ? t(errorWatchLater) : errorWatchLater,
+                severity: 'error',
+            });
+            dispatch(clearErrorWatchLater());
         }
-    }, [errorWatchLater]);
+    }, [errorWatchLater, notify, t, dispatch]);
 
     const handleConfirmClear = () => {
         setOpenConfirmModal(false);
@@ -57,8 +61,6 @@ const WatchLaterPage = () => {
                     numWatchLater > 0 && !loadingWatchLater && <Button onClick={() => setOpenConfirmModal(true)} variant='contained' sx={{ height: 'fit-content' }}>{t("watch_later.clear_watch_later")}</Button>
                 }
             </Stack>
-
-            {errorWatchLater && <Notification open={open} message={i18next.exists(errorWatchLater) ? t(errorWatchLater) : errorWatchLater} severity='error' handleClose={() => setOpen(false)} />}
 
             {
                 loadingWatchLater && <Box display="flex" justifyContent="center" alignItems="center" height="50vh">
