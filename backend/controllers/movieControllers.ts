@@ -16,7 +16,6 @@ export const fetchMovieById = async (imdbID: String) => {
     if (!imdbID) throw new Error('IMDb ID is required');
 
     const query = `${API_URL}?apikey=${API_KEY}&i=${imdbID}&plot=full`;
-    // console.log(`Fetching movie details for: ${imdbID}`);
     const response = await axios.get(query);
 
     if (response.data.Response === 'True') {
@@ -39,7 +38,6 @@ export const search = async (req: Request, res: Response): Promise<void> => {
       return;
     }
     const query = `${API_URL}?apikey=${API_KEY}&s=${title}&y=${year}&t=${type}&page=${page}`;
-    console.log('Search endpoint hit with query:', query);
     const response = await axios.get(query);
 
     if (response.data.Response === 'True') {
@@ -70,7 +68,6 @@ export const getById = async (req: Request, res: Response): Promise<void> => {
       });
       return;
     }
-    // console.log(`Search endpoint hit with id: ${imdbID}`);
     const movie = await fetchMovieById(imdbID);
 
     if (movie.error) {
@@ -92,7 +89,7 @@ export const getById = async (req: Request, res: Response): Promise<void> => {
 
 export const addFavourite = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { userID, imdbID } = req.body;
 
@@ -115,7 +112,7 @@ export const addFavourite = async (
   try {
     await pool.query(
       'INSERT INTO favourites_yn085 (user_id, imdb_id) VALUES ($1, $2) ON CONFLICT (user_id, imdb_id) DO NOTHING',
-      [userIDHash, imdbID]
+      [userIDHash, imdbID],
     );
     const movie = await fetchMovieById(imdbID);
     res.status(200).json({ message: 'Favourite added', movie });
@@ -127,7 +124,7 @@ export const addFavourite = async (
 
 export const getFavourites = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { userID } = req.body;
 
@@ -142,7 +139,7 @@ export const getFavourites = async (
   try {
     const result = await pool.query(
       'SELECT imdb_id FROM favourites_yn085 WHERE user_id = $1',
-      [userIDHash]
+      [userIDHash],
     );
     const movieIds: String[] = result.rows.map((row: any) => row.imdb_id);
 
@@ -152,20 +149,17 @@ export const getFavourites = async (
     }
 
     const movieDetails = await Promise.all(
-      movieIds.map(async (imdbID) => await fetchMovieById(imdbID))
+      movieIds.map(async (imdbID) => await fetchMovieById(imdbID)),
     );
-
-    console.log('Retrieved favourites list');
     res.status(200).json({ movies: movieDetails, length: movieDetails.length });
   } catch (error) {
-    console.error('Error getting favourites:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
 export const removeFavourite = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { userID, imdbID } = req.body;
@@ -188,7 +182,7 @@ export const removeFavourite = async (
 
     await pool.query(
       'DELETE FROM favourites_yn085 WHERE user_id = $1 AND imdb_id = $2',
-      [userIDHash, imdbID]
+      [userIDHash, imdbID],
     );
     res.status(200).json({ message: 'Favourite deleted' });
   } catch (error) {
@@ -199,7 +193,7 @@ export const removeFavourite = async (
 
 export const clearAllFavourites = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { userID } = req.body;
@@ -225,7 +219,7 @@ export const clearAllFavourites = async (
 
 export const addWatchLater = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { userID, imdbID } = req.body;
 
@@ -248,7 +242,7 @@ export const addWatchLater = async (
   try {
     await pool.query(
       "INSERT INTO user_movies_yn085 (user_id, imdb_id, status) VALUES ($1, $2, 'watch_later') ON CONFLICT (user_id, imdb_id) DO UPDATE SET status = 'watch_later'",
-      [userIDHash, imdbID]
+      [userIDHash, imdbID],
     );
     const movie = await fetchMovieById(imdbID);
     res.status(200).json({ message: 'Movie added to Watch Later', movie });
@@ -260,7 +254,7 @@ export const addWatchLater = async (
 
 export const addWatched = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { userID, imdbID } = req.body;
 
@@ -283,7 +277,7 @@ export const addWatched = async (
   try {
     await pool.query(
       "INSERT INTO user_movies_yn085 (user_id, imdb_id, status) VALUES ($1, $2, 'watched') ON CONFLICT (user_id, imdb_id) DO UPDATE SET status = 'watched'",
-      [userIDHash, imdbID]
+      [userIDHash, imdbID],
     );
     const movie = await fetchMovieById(imdbID);
     res.status(200).json({ message: 'Movie marked as Watched', movie });
@@ -295,7 +289,7 @@ export const addWatched = async (
 
 export const deleteWatch = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { userID, imdbID } = req.body;
 
@@ -318,7 +312,7 @@ export const deleteWatch = async (
   try {
     await pool.query(
       'DELETE FROM user_movies_yn085 WHERE user_id = $1 AND imdb_id = $2',
-      [userIDHash, imdbID]
+      [userIDHash, imdbID],
     );
     res.status(200).json({ message: 'Movie removed from watch list' });
   } catch (error) {
@@ -329,7 +323,7 @@ export const deleteWatch = async (
 
 export const getWatched = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { userID } = req.body;
 
@@ -345,7 +339,7 @@ export const getWatched = async (
   try {
     const result = await pool.query(
       "SELECT * FROM user_movies_yn085 WHERE user_id = $1 AND status = 'watched'",
-      [userIDHash]
+      [userIDHash],
     );
     const movieIds: String[] = result.rows.map((row) => row.imdb_id);
 
@@ -355,20 +349,18 @@ export const getWatched = async (
     }
 
     const movieDetails = await Promise.all(
-      movieIds.map(async (imdbID) => await fetchMovieById(imdbID))
+      movieIds.map(async (imdbID) => await fetchMovieById(imdbID)),
     );
 
-    console.log('Retrieved watched list');
     res.status(200).json({ movies: movieDetails, length: movieDetails.length });
   } catch (error) {
-    console.error('Error getting watched list:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
 export const getWatchLater = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { userID } = req.body;
 
@@ -384,7 +376,7 @@ export const getWatchLater = async (
   try {
     const result = await pool.query(
       "SELECT * FROM user_movies_yn085 WHERE user_id = $1 AND status = 'watch_later'",
-      [userIDHash]
+      [userIDHash],
     );
     const movieIds: String[] = result.rows.map((row) => row.imdb_id);
 
@@ -394,20 +386,18 @@ export const getWatchLater = async (
     }
 
     const movieDetails = await Promise.all(
-      movieIds.map(async (imdbID) => await fetchMovieById(imdbID))
+      movieIds.map(async (imdbID) => await fetchMovieById(imdbID)),
     );
 
-    console.log('Retrieved watch later list');
     res.status(200).json({ movies: movieDetails, length: movieDetails.length });
   } catch (error) {
-    console.error('Error getting watch later:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
 export const clearAllWatchLater = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { userID } = req.body;
 
@@ -423,7 +413,7 @@ export const clearAllWatchLater = async (
   try {
     await pool.query(
       "DELETE FROM user_movies_yn085 WHERE user_id = $1 AND status = 'watch_later'",
-      [userIDHash]
+      [userIDHash],
     );
     res.status(200).json({ message: 'All Watch Later movies cleared' });
   } catch (error) {
@@ -434,7 +424,7 @@ export const clearAllWatchLater = async (
 
 export const clearAllWatched = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { userID } = req.body;
 
@@ -450,7 +440,7 @@ export const clearAllWatched = async (
   try {
     await pool.query(
       "DELETE FROM user_movies_yn085 WHERE user_id = $1 AND status = 'watched'",
-      [userIDHash]
+      [userIDHash],
     );
     res.status(200).json({ message: 'All Watched movies cleared' });
   } catch (error) {

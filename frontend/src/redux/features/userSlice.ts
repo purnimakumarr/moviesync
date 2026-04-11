@@ -48,10 +48,8 @@ export const initializeUser = createAsyncThunk<UserArgsType, string>(
 
       const response = await axiosPrivate.post(
         `${API_URL}/api/user/create-user`,
-        { userID }
+        { userID },
       );
-
-      console.log('userSlice: User created => ', response.data);
 
       if (response.data.country) {
         return { ...response.data, userID };
@@ -78,12 +76,12 @@ export const initializeUser = createAsyncThunk<UserArgsType, string>(
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         return rejectWithValue(
-          error.response?.data || error.message || 'Network Error'
+          error.response?.data || error.message || 'Network Error',
         );
       }
       return rejectWithValue('An unknown error occurred');
     }
-  }
+  },
 );
 
 export const updateUser = createAsyncThunk<UserArgsType, UserArgsType>(
@@ -98,7 +96,7 @@ export const updateUser = createAsyncThunk<UserArgsType, UserArgsType>(
       dob = null,
       country = null,
     },
-    { rejectWithValue }
+    { rejectWithValue },
   ) => {
     try {
       if (!userID) {
@@ -121,27 +119,25 @@ export const updateUser = createAsyncThunk<UserArgsType, UserArgsType>(
           phone,
           dob,
           country,
-        }).filter(([, value]) => value !== null)
+        }).filter(([, value]) => value !== null),
       );
 
       const response = await axiosPrivate.post(
         `${API_URL}/api/user/update-user`,
         {
           ...filteredData,
-        }
+        },
       );
-
-      console.log('userSlice: User updated => ', response);
       return response.data.user as UserArgsType;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         return rejectWithValue(
-          error.response?.data || error.message || 'Network Error'
+          error.response?.data || error.message || 'Network Error',
         );
       }
       return rejectWithValue('An unknown error occurred');
     }
-  }
+  },
 );
 
 export const fetchUser = createAsyncThunk<UserArgsType, string>(
@@ -152,18 +148,17 @@ export const fetchUser = createAsyncThunk<UserArgsType, string>(
         userID,
       });
 
-      console.log('userSlice: User retrieved => ', response);
       return response.data.user as UserArgsType;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         return rejectWithValue(
-          error.response?.data || error.message || 'Network Error'
+          error.response?.data || error.message || 'Network Error',
         );
       }
       console.log(error);
       return rejectWithValue('An unknown error occurred');
     }
-  }
+  },
 );
 
 const userSlice = createSlice({

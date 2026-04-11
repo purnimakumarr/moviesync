@@ -31,17 +31,15 @@ export const fetchWatchLater = createAsyncThunk<Movie[], string | null>(
     try {
       const response = await axiosPrivate.post(
         `${API_URL}/api/watch-later/list`,
-        { userID }
+        { userID },
       );
-
-      console.log('watchSlice: Watch Later fetched => ', response.data.movies);
 
       return response.data.movies;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('watch_later.error_fetching_watch_later');
     }
-  }
+  },
 );
 
 export const fetchWatched = createAsyncThunk<Movie[], string | null>(
@@ -52,14 +50,12 @@ export const fetchWatched = createAsyncThunk<Movie[], string | null>(
         userID,
       });
 
-      console.log('watchSlice: Watched fetched => ', response.data.movies);
-
       return response.data.movies;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('watched.error_fetching_watched');
     }
-  }
+  },
 );
 
 export const addWatchLater = createAsyncThunk<Movie, UserMovieArgs>(
@@ -68,17 +64,15 @@ export const addWatchLater = createAsyncThunk<Movie, UserMovieArgs>(
     try {
       const response = await axiosPrivate.post(
         `${API_URL}/api/watch-later/add`,
-        { userID, imdbID }
+        { userID, imdbID },
       );
-
-      console.log('watchSlice: Watch Later added =>', response.data.movie);
 
       return response.data.movie;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('watch_later.error_adding_watch_later');
     }
-  }
+  },
 );
 
 export const addWatched = createAsyncThunk<Movie, UserMovieArgs>(
@@ -90,14 +84,12 @@ export const addWatched = createAsyncThunk<Movie, UserMovieArgs>(
         imdbID,
       });
 
-      console.log('watchSlice: Watched added =>', response.data.movie);
-
       return response.data.movie;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('watched.error_adding_watched');
     }
-  }
+  },
 );
 
 export const deleteWatchLater = createAsyncThunk<string, UserMovieArgs>(
@@ -109,14 +101,12 @@ export const deleteWatchLater = createAsyncThunk<string, UserMovieArgs>(
         imdbID,
       });
 
-      console.log('userSlice: Watch Later deleted =>', imdbID);
-
       return imdbID;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('watch_later.error_deleting_watch_later');
     }
-  }
+  },
 );
 
 export const deleteWatched = createAsyncThunk<string, UserMovieArgs>(
@@ -128,14 +118,12 @@ export const deleteWatched = createAsyncThunk<string, UserMovieArgs>(
         imdbID,
       });
 
-      console.log('userSlice: Watched deleted =>', imdbID);
-
       return imdbID;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('watched.error_deleting_watched');
     }
-  }
+  },
 );
 
 export const clearWatchLater = createAsyncThunk<void, string | null>(
@@ -144,12 +132,11 @@ export const clearWatchLater = createAsyncThunk<void, string | null>(
     try {
       await axiosPrivate.post(`${API_URL}/api/watch-later/clear`, { userID });
 
-      console.log('watchSlice: Watch Later list cleared!');
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('watch_later.error_clearing_watch_later');
     }
-  }
+  },
 );
 
 export const clearWatched = createAsyncThunk<void, string | null>(
@@ -157,13 +144,11 @@ export const clearWatched = createAsyncThunk<void, string | null>(
   async (userID, { rejectWithValue }) => {
     try {
       await axiosPrivate.post(`${API_URL}/api/watched/clear`, { userID });
-
-      console.log('watchSlice: Watched list cleared!');
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('watched.error_clearing_watched');
     }
-  }
+  },
 );
 
 const watchSlice = createSlice({
@@ -188,7 +173,7 @@ const watchSlice = createSlice({
           action.payload.forEach((movie) => {
             state.watchLater[movie.imdbID] = movie;
           });
-        }
+        },
       )
       .addCase(fetchWatchLater.rejected, (state, action) => {
         state.loadingWatchLater = false;
@@ -215,7 +200,7 @@ const watchSlice = createSlice({
         deleteWatchLater.fulfilled,
         (state, action: PayloadAction<string>) => {
           delete state.watchLater[action.payload];
-        }
+        },
       )
       .addCase(deleteWatchLater.rejected, (state, action) => {
         state.errorWatchLater = action.payload as string;
@@ -249,7 +234,7 @@ const watchSlice = createSlice({
           action.payload.forEach((movie) => {
             state.watched[movie.imdbID] = movie;
           });
-        }
+        },
       )
       .addCase(fetchWatched.rejected, (state, action) => {
         state.loadingWatched = false;
@@ -263,7 +248,7 @@ const watchSlice = createSlice({
         deleteWatched.fulfilled,
         (state, action: PayloadAction<string>) => {
           delete state.watched[action.payload];
-        }
+        },
       )
       .addCase(deleteWatched.rejected, (state, action) => {
         state.errorWatched = action.payload as string;

@@ -26,12 +26,7 @@ export const fetchFavourites = createAsyncThunk<Movie[], string | null>(
     try {
       const response = await axiosPrivate.post(
         `${API_URL}/api/favourite/list`,
-        { userID }
-      );
-
-      console.log(
-        'favouritesSlice: Favourites fetched => ',
-        response.data.movies
+        { userID },
       );
 
       return response.data.movies;
@@ -39,7 +34,7 @@ export const fetchFavourites = createAsyncThunk<Movie[], string | null>(
     } catch (error: unknown) {
       return rejectWithValue('favourites.error_fetching_favourites');
     }
-  }
+  },
 );
 
 export const addFavourite = createAsyncThunk<Movie, UserMovieArgs>(
@@ -51,14 +46,12 @@ export const addFavourite = createAsyncThunk<Movie, UserMovieArgs>(
         imdbID,
       });
 
-      console.log('favouritesSlice: Favourite added =>', response.data.movie);
-
       return response.data.movie;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('favourites.error_adding_favourite');
     }
-  }
+  },
 );
 
 export const deleteFavourite = createAsyncThunk<string, UserMovieArgs>(
@@ -70,14 +63,12 @@ export const deleteFavourite = createAsyncThunk<string, UserMovieArgs>(
         imdbID,
       });
 
-      console.log('favouritesSlice: Favourite deleted =>', imdbID);
-
       return imdbID;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('favourites.error_deleting_favourite');
     }
-  }
+  },
 );
 
 export const clearFavourites = createAsyncThunk<void, string | null>(
@@ -85,13 +76,11 @@ export const clearFavourites = createAsyncThunk<void, string | null>(
   async (userID, { rejectWithValue }) => {
     try {
       await axiosPrivate.post(`${API_URL}/api/favourite/clear`, { userID });
-
-      console.log('favouritesSlice: Favourites list cleared!');
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('favourites.error_clearing_favourites');
     }
-  }
+  },
 );
 
 const favouritesSlice = createSlice({

@@ -10,7 +10,7 @@ import {
 export const encryptMiddleware = function (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): void {
   const originalSend = res.send.bind(res);
 
@@ -29,8 +29,6 @@ export const encryptMiddleware = function (
       return originalSend(body); // If body isn't JSON, return as is
     }
 
-    console.log('encryptMiddleware: parsedBody =>', parsedBody);
-
     const aesKey = generateAESKey();
     const { iv, encryptedData } = encryptData(parsedBody, aesKey);
     const encryptedAESKey = encryptAESKey(aesKey);
@@ -43,8 +41,6 @@ export const encryptMiddleware = function (
       encryptedData,
     };
 
-    console.log('encryptMiddleware: Encrypted at BE =>', encryptedResponse);
-
     return originalSend(JSON.stringify(encryptedResponse));
   };
 
@@ -54,7 +50,7 @@ export const encryptMiddleware = function (
 export const decryptMiddleware = function (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): void {
   try {
     const encryptedAESKey = req.headers['encrypted-key'] as string;
@@ -77,11 +73,8 @@ export const decryptMiddleware = function (
     const aesKey = decryptAESKey(encryptedAESKey);
     req.body = decryptData(encryptedPayload, aesKey);
 
-    console.log('decryptMiddleware: Decrypted at BE =>', req.body);
-
     next();
   } catch (error) {
-    console.log('decryptMiddleware.ts: Decryption failed =>', error);
     res.status(500).json({
       error: 'Decryption error',
     });

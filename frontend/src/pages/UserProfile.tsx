@@ -138,8 +138,6 @@ const UserProfile = () => {
             }));
     }, [watched]);
 
-    console.log(topIMDbVotesCount)
-
     return (
         <>
             <BackButton />

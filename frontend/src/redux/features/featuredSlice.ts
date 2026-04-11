@@ -24,21 +24,17 @@ export const fetchFeatured = createAsyncThunk<
           imdbID: id,
         });
         if (res.data.success) {
-          // console.log('featuredSlice: Featured movies retrieved =>', res.data);
           return {
             ...res.data.movie,
             tag: featuredList.find((item) => item.id === id)?.tag,
           };
         }
-      })
+      }),
     );
 
     const validResponses = responses.filter(Boolean);
 
     if (validResponses.length === 0) {
-      console.log(
-        'featuredSlice: Cannot fetch featured movies at this moment.'
-      );
       return rejectWithValue('Cannot fetch featured movies at this moment.');
     }
 
@@ -46,7 +42,7 @@ export const fetchFeatured = createAsyncThunk<
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
       return rejectWithValue(
-        error.response?.data || error.message || 'Network Error'
+        error.response?.data || error.message || 'Network Error',
       );
     }
     return rejectWithValue('An unknown error occurred');

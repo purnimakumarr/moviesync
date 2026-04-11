@@ -34,7 +34,7 @@ axiosPrivate.interceptors.request.use(
 
     if (newConfig.data) {
       const [encryptedPayload, encryptedAESKeyClient] = encryptPayload(
-        newConfig.data
+        newConfig.data,
       );
 
       newConfig.data = encryptedPayload;
@@ -48,7 +48,7 @@ axiosPrivate.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 axiosPrivate.interceptors.response.use(
@@ -72,7 +72,7 @@ axiosPrivate.interceptors.response.use(
           iv: newResponse.data.iv,
           encryptedData: newResponse.data.encryptedData,
         },
-        encryptedAESKeyServer
+        encryptedAESKeyServer,
       );
 
       newResponse.data = decryptedResponse;
@@ -86,5 +86,5 @@ axiosPrivate.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );

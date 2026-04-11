@@ -173,7 +173,6 @@ function EditProfile({ onEditProfileClose }: EditProfileFormProps) {
             dob: values.birthDate?.format('YYYY-MM-DD') || '',
             country: values.phoneCountry
         }));
-        console.log("Submitted values: ", values);
     }
 
     return (<>
