@@ -18,7 +18,8 @@ export const fetchFeatured = createAsyncThunk<
       return rejectWithValue('No IMDB IDs provided.');
     }
 
-    const responses = await Promise.all(
+    const [trendingResponse, responses] = await Promise.all([
+      axiosPublic.get(`${API_URL}/api/trending`).catch(() => null),
       featuredList.map(async ({ id }) => {
         const res = await axiosPublic.post(`${API_URL}/api/getById`, {
           imdbID: id,
@@ -30,9 +31,22 @@ export const fetchFeatured = createAsyncThunk<
           };
         }
       }),
-    );
+    ]);
 
-    const validResponses = responses.filter(Boolean);
+    const curatedMovies = await Promise.all(responses);
+
+    const trendingMovies = trendingResponse?.data?.success
+      ? trendingResponse.data.movies
+      : [];
+    const curatedResponses = curatedMovies.filter(Boolean) as FeaturedMovie[];
+    const curatedWithoutTrending = curatedResponses.filter(
+      (movie) => movie.tag !== 'Trending',
+    );
+    const trending =
+      trendingMovies.length > 0
+        ? trendingMovies
+        : curatedResponses.filter((movie) => movie.tag === 'Trending');
+    const validResponses = [...trending, ...curatedWithoutTrending];
 
     if (validResponses.length === 0) {
       return rejectWithValue('Cannot fetch featured movies at this moment.');

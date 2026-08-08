@@ -11,14 +11,136 @@ const API_URL =
     ? process.env.OMDB_URL_PROD
     : process.env.OMDB_URL_DEV;
 
+type MovieCacheRow = {
+  imdb_id: string;
+  title: string;
+  poster: string;
+  year: string;
+  genre: string;
+  type: string;
+  imdb_rating: string;
+  language: string;
+  runtime: string;
+  director: string;
+  actors: string;
+};
+
+let movieInfrastructureReady = false;
+
+const ensureMovieInfrastructure = async () => {
+  if (movieInfrastructureReady) return;
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS movie_cache (
+      imdb_id TEXT PRIMARY KEY,
+      title TEXT,
+      poster TEXT,
+      year TEXT,
+      genre TEXT,
+      type TEXT,
+      imdb_rating TEXT,
+      language TEXT,
+      runtime TEXT,
+      director TEXT,
+      actors TEXT,
+      cached_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(
+    'ALTER TABLE favourites_yn085 ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()',
+  );
+  await pool.query(
+    'ALTER TABLE user_movies_yn085 ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()',
+  );
+
+  movieInfrastructureReady = true;
+};
+
+const movieFromCacheRow = (row: MovieCacheRow) => ({
+  imdbID: row.imdb_id,
+  Title: row.title,
+  Poster: row.poster,
+  Year: row.year,
+  Genre: row.genre,
+  Type: row.type,
+  imdbRating: row.imdb_rating,
+  Language: row.language,
+  Runtime: row.runtime,
+  Director: row.director,
+  Actors: row.actors,
+});
+
+const cacheMovie = async (movie: any) => {
+  if (!movie?.imdbID || movie.error) return;
+
+  await ensureMovieInfrastructure();
+  await pool.query(
+    `
+      INSERT INTO movie_cache (
+        imdb_id,
+        title,
+        poster,
+        year,
+        genre,
+        type,
+        imdb_rating,
+        language,
+        runtime,
+        director,
+        actors,
+        cached_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+      ON CONFLICT (imdb_id) DO UPDATE SET
+        title = EXCLUDED.title,
+        poster = EXCLUDED.poster,
+        year = EXCLUDED.year,
+        genre = EXCLUDED.genre,
+        type = EXCLUDED.type,
+        imdb_rating = EXCLUDED.imdb_rating,
+        language = EXCLUDED.language,
+        runtime = EXCLUDED.runtime,
+        director = EXCLUDED.director,
+        actors = EXCLUDED.actors,
+        cached_at = NOW()
+    `,
+    [
+      movie.imdbID,
+      movie.Title,
+      movie.Poster,
+      movie.Year,
+      movie.Genre,
+      movie.Type,
+      movie.imdbRating,
+      movie.Language,
+      movie.Runtime,
+      movie.Director,
+      movie.Actors,
+    ],
+  );
+};
+
 export const fetchMovieById = async (imdbID: String) => {
   try {
     if (!imdbID) throw new Error('IMDb ID is required');
+
+    await ensureMovieInfrastructure();
+
+    const cachedMovie = await pool.query(
+      'SELECT * FROM movie_cache WHERE imdb_id = $1',
+      [imdbID],
+    );
+
+    if (cachedMovie.rows.length > 0) {
+      return movieFromCacheRow(cachedMovie.rows[0]);
+    }
 
     const query = `${API_URL}?apikey=${API_KEY}&i=${imdbID}&plot=full`;
     const response = await axios.get(query);
 
     if (response.data.Response === 'True') {
+      await cacheMovie(response.data);
       return response.data;
     } else {
       return { imdbID: imdbID, error: response.data.Error };
@@ -83,6 +205,130 @@ export const getById = async (req: Request, res: Response): Promise<void> => {
     }
   } catch (error) {
     console.error('Error in search controller:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const getTrending = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    await ensureMovieInfrastructure();
+
+    const result = await pool.query(`
+      WITH activity AS (
+        SELECT imdb_id, created_at FROM favourites_yn085
+        UNION ALL
+        SELECT imdb_id, created_at FROM user_movies_yn085
+      )
+      SELECT
+        mc.*,
+        COUNT(*)::int AS activity_count,
+        MAX(activity.created_at) AS latest_activity_at
+      FROM activity
+      JOIN movie_cache mc ON mc.imdb_id = activity.imdb_id
+      GROUP BY mc.imdb_id
+      ORDER BY
+        SUM(
+          CASE
+            WHEN activity.created_at >= NOW() - INTERVAL '14 days' THEN 3
+            WHEN activity.created_at >= NOW() - INTERVAL '45 days' THEN 2
+            ELSE 1
+          END
+        ) DESC,
+        MAX(activity.created_at) DESC
+      LIMIT 20
+    `);
+
+    const movies = result.rows.map((row) => ({
+      ...movieFromCacheRow(row),
+      tag: 'Trending',
+      activityCount: row.activity_count,
+      latestActivityAt: row.latest_activity_at,
+    }));
+
+    res.status(200).json({ success: true, movies });
+  } catch (error) {
+    console.error('Error fetching trending movies:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const getWheelCandidates = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const {
+      genres = [],
+      type = 'both',
+      fromYear,
+      toYear,
+      excludeImdbIDs = [],
+      limit = 24,
+    } = req.body;
+
+    await ensureMovieInfrastructure();
+
+    const safeLimit = Math.min(Math.max(Number(limit) || 24, 1), 50);
+    const filters: string[] = [];
+    const values: unknown[] = [];
+
+    if (Array.isArray(genres) && genres.length > 0) {
+      values.push(genres.map((genre) => String(genre).toLowerCase()));
+      filters.push(`
+        EXISTS (
+          SELECT 1
+          FROM unnest($${values.length}::text[]) AS requested_genre
+          WHERE lower(mc.genre) LIKE '%' || requested_genre || '%'
+        )
+      `);
+    }
+
+    if (type === 'movie' || type === 'series') {
+      values.push(type);
+      filters.push(`mc.type = $${values.length}`);
+    }
+
+    if (fromYear) {
+      values.push(Number(fromYear));
+      filters.push(
+        `NULLIF(substring(mc.year from '\\d{4}'), '')::int >= $${values.length}`,
+      );
+    }
+
+    if (toYear) {
+      values.push(Number(toYear));
+      filters.push(
+        `NULLIF(substring(mc.year from '\\d{4}'), '')::int <= $${values.length}`,
+      );
+    }
+
+    if (Array.isArray(excludeImdbIDs) && excludeImdbIDs.length > 0) {
+      values.push(excludeImdbIDs.map(String));
+      filters.push(`mc.imdb_id != ALL($${values.length}::text[])`);
+    }
+
+    values.push(safeLimit);
+
+    const result = await pool.query(
+      `
+        SELECT mc.*
+        FROM movie_cache mc
+        ${filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : ''}
+        ORDER BY RANDOM()
+        LIMIT $${values.length}
+      `,
+      values,
+    );
+
+    res.status(200).json({
+      success: true,
+      movies: result.rows.map(movieFromCacheRow),
+    });
+  } catch (error) {
+    console.error('Error fetching wheel candidates:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };

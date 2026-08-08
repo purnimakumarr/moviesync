@@ -65,7 +65,7 @@ export default function ListBreakdownPieChart({
 }: ListBreakdownChartProps) {
 
     const isLoading = useSelector((state: RootState) =>
-        state.favourites.loading || state.watch.watchLater.loading || state.watch.watched.loading
+        state.favourites.loading || state.watch.loadingWatchLater || state.watch.loadingWatched
     );
 
     const total = numFavourites + numWatchLater + numWatched;

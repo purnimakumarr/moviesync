@@ -14,6 +14,7 @@ import FavoriteIcon from "@mui/icons-material/Favorite";
 import SearchIcon from "@mui/icons-material/Search";
 import WhatshotIcon from '@mui/icons-material/Whatshot';
 import MenuIcon from "@mui/icons-material/Menu";
+import CasinoIcon from "@mui/icons-material/Casino";
 
 import ThemeSwitcher from './components/common/ThemeSwitcher';
 import LanguageSwitcher from './components/common/LanguageSwitcher';
@@ -48,6 +49,7 @@ const Layout = () => {
         { path: "/favourites", icon: <FavoriteIcon />, label: t("header.favourites") },
         { path: "/watch-later", icon: <WatchLaterIcon />, label: t("header.watch_later") },
         { path: "/watched", icon: <CheckCircleIcon />, label: t("header.watched") },
+        { path: "/spin-wheel", icon: <CasinoIcon />, label: "Spin the Wheel" },
     ];
 
     return (

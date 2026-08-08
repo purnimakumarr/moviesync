@@ -64,7 +64,7 @@ function PieLoadingOverlay() {
 
 export default function TopLanguagesPieChart({ languageCount }: TopLanguagesPieChartProps) {
     const isLoading = useSelector((state: RootState) =>
-        state.favourites.loading || state.watch.watchLater.loading || state.watch.watched.loading
+        state.favourites.loading || state.watch.loadingWatchLater || state.watch.loadingWatched
     );
     const theme = useTheme();
     const { t } = useTranslation();

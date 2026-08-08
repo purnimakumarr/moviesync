@@ -60,7 +60,7 @@ export default function IMDbVotesChart({ votesData }: IMDbVotesChartProps) {
     const { t } = useTranslation();
 
     const isLoading = useSelector((state: RootState) =>
-        state.favourites.loading || state.watch.watchLater.loading || state.watch.watched.loading
+        state.favourites.loading || state.watch.loadingWatchLater || state.watch.loadingWatched
     );
 
 

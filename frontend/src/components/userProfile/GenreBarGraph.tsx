@@ -1,93 +1,102 @@
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
+import { useTranslation } from 'react-i18next';
 
+import { BarChart } from '@mui/x-charts/BarChart';
 import { Box, Typography, useTheme } from '@mui/material';
-import { Bar, BarChart, Cell, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 
 type BarGraphProps = {
-    genreCount: Record<string, number>
+  genreCount: Record<string, number>;
+};
+
+const generateColor = (index: number) => {
+  const hue = (index * 137) % 360;
+  return `hsl(${hue}, 70%, 50%)`;
 };
 
 export default function GenreBarGraph({ genreCount }: BarGraphProps) {
-    const theme = useTheme();
-    const isLoading = useSelector((state: RootState) =>
-        state.favourites.loading || state.watch.watchLater.loading || state.watch.watched.loading
-    );
+  const theme = useTheme();
+  const { t } = useTranslation();
+  const isLoading = useSelector(
+    (state: RootState) =>
+      state.favourites.loading ||
+      state.watch.loadingWatchLater ||
+      state.watch.loadingWatched,
+  );
 
-    const generateColor = (index: number) => {
-        const hue = (index * 137) % 360;
-        return `hsl(${hue}, 70%, 50%)`;
-    };
+  const sortedData = Object.entries(genreCount)
+    .map(([genre, count], index) => ({
+      genre,
+      count,
+      color: generateColor(index),
+    }))
+    .sort((a, b) => b.count - a.count);
 
-    const formatGenreData = (genreCount: Record<string, number>) => {
-        return Object.entries(genreCount).map(([genre, count], index) => ({
-            genre,
-            count,
-            color: generateColor(index),
-        }));
-    };
-
-    const data = formatGenreData(genreCount);
-    const sortedData = [...data].sort((a, b) => b.count - a.count);
-
-    if (isLoading) {
-        // Simulated skeleton bars for loading state
-        const loadingData = Array.from({ length: 10 }, (_, i) => ({
-            genre: `Loading ${i + 1}`,
-            count: Math.random() * 10 + 5, // Random height
-        }));
-
-        return (
-            <ResponsiveContainer width="100%" height={800}>
-                <BarChart
-                    data={loadingData}
-                    layout="vertical"
-                    margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
-                >
-                    <XAxis type="number" stroke={theme.palette.text.primary} tick={false} />
-                    <YAxis type="category" dataKey="genre" tick={false} stroke={theme.palette.text.primary} />
-                    <Bar dataKey="count" radius={[0, 6, 6, 0]}>
-                        {loadingData.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill="gray" />
-                        ))}
-                    </Bar>
-                </BarChart>
-            </ResponsiveContainer>
-        );
-    }
-
-    if (sortedData.length === 0) {
-        return (
-            <Box display="flex" alignItems="center" justifyContent="center" height={800}>
-                <Typography variant="h6" color={theme.palette.text.secondary}>
-                    No data to display. Add movies to your lists!
-                </Typography>
-            </Box>
-        );
-    }
-
+  if (isLoading) {
     return (
-        <ResponsiveContainer width="100%" height={800}>
-            <BarChart
-                data={sortedData}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 80, bottom: 5 }}
-            >
-                <XAxis type="number" stroke={theme.palette.text.primary} tick={{ fill: theme.palette.text.primary }} />
-                <YAxis
-                    type="category"
-                    dataKey="genre"
-                    tick={{ fontSize: 14, fill: theme.palette.text.primary }}
-                    stroke={theme.palette.text.primary}
-                />
-                <Bar dataKey="count" background={{ fill: theme.palette.background.default }} radius={[0, 6, 6, 0]}>
-                    {sortedData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                </Bar>
-            </BarChart>
-        </ResponsiveContainer>
+      <BarChart
+        loading
+        dataset={Array.from({ length: 8 }, (_, index) => ({
+          genre: `Loading ${index + 1}`,
+          count: 10 - index,
+        }))}
+        yAxis={[{ scaleType: 'band', dataKey: 'genre' }]}
+        xAxis={[{}]}
+        series={[{ dataKey: 'count', color: theme.palette.secondary.main }]}
+        layout="horizontal"
+        height={420}
+      />
     );
+  }
+
+  if (sortedData.length === 0) {
+    return (
+      <Box display="flex" alignItems="center" justifyContent="center" height={320}>
+        <Typography variant="h6" color={theme.palette.text.secondary}>
+          {t('profile.error_no_data')}
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <BarChart
+      dataset={sortedData}
+      yAxis={[
+        {
+          scaleType: 'band',
+          dataKey: 'genre',
+          tickLabelStyle: {
+            fill: theme.palette.text.primary,
+            fontSize: 13,
+            fontWeight: 600,
+          },
+        },
+      ]}
+      xAxis={[
+        {
+          tickLabelStyle: {
+            fill: theme.palette.text.primary,
+            fontWeight: 500,
+          },
+        },
+      ]}
+      series={[
+        {
+          dataKey: 'count',
+          color: theme.palette.primary.main,
+          valueFormatter: (value) => `${value}`,
+        },
+      ]}
+      layout="horizontal"
+      height={Math.max(360, sortedData.length * 36)}
+      borderRadius={8}
+      margin={{ left: 110, right: 24, top: 16, bottom: 36 }}
+      slotProps={{
+        legend: {
+          hidden: true,
+        },
+      }}
+    />
+  );
 }
-
-

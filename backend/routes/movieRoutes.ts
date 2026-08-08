@@ -9,8 +9,10 @@ import {
   deleteWatch,
   getById,
   getFavourites,
+  getTrending,
   getWatched,
   getWatchLater,
+  getWheelCandidates,
   removeFavourite,
   search,
 } from '../controllers/movieControllers';
@@ -37,6 +39,8 @@ const movieActionLimiter = rateLimit({
 
 router.post('/search', searchLimiter, search);
 router.post('/getById', getById);
+router.get('/trending', searchLimiter, getTrending);
+router.post('/wheel/candidates', searchLimiter, getWheelCandidates);
 
 /**
  * Favourite Movies Routes

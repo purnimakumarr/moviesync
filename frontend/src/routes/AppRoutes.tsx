@@ -10,6 +10,7 @@ import UserProfile from "../pages/UserProfile";
 import Favourites from "../pages/Favourites";
 import WatchLaterPage from "../pages/WatchLaterPage";
 import Watched from "../pages/Watched";
+import SpinWheel from "../pages/SpinWheel";
 
 function AppRoutes() {
     return (
@@ -25,6 +26,7 @@ function AppRoutes() {
                         <Route path="favourites" element={<Favourites />} />
                         <Route path="watch-later" element={<WatchLaterPage />} />
                         <Route path="watched" element={<Watched />} />
+                        <Route path="spin-wheel" element={<SpinWheel />} />
                     </Route>
                 </Route>
             </Routes>

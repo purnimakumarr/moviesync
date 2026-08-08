@@ -11,7 +11,6 @@ const FRONTEND_URL =
 
 export const oauthConfig = {
   authority: AUTHORITY,
-  // audience: AUDIENCE,
   client_id: CLIENT_ID,
   redirect_uri: FRONTEND_URL,
   response_type: 'code',
