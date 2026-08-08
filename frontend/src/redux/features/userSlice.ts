@@ -44,35 +44,20 @@ export const initializeUser = createAsyncThunk<UserArgsType, string>(
   'user/create',
   async (userID, { rejectWithValue }) => {
     try {
-      if (!userID) rejectWithValue('Email is required');
+      if (!userID) {
+        return rejectWithValue('Email is required');
+      }
 
       const response = await axiosPrivate.post(
         `${API_URL}/api/user/create-user`,
         { userID },
       );
 
-      if (response.data.country) {
-        return { ...response.data, userID };
-      }
-
-      // const responseCountry = await axiosPrivate.post(
-      //   `${API_URL}/api/user/get-country`
-      // );
-
-      // if (!response.data.success) {
-      //   return {
-      //     ...response.data,
-      //     userID,
-      //     country: 'IN',
-      //     message: responseCountry.data.error,
-      //   };
-      // }
-
       return {
-        ...response.data,
-        country: 'IN',
+        ...response.data.user,
         userID,
-      };
+        country: response.data.user?.country || 'IN',
+      } as UserArgsType;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         return rejectWithValue(
