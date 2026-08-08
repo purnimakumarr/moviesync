@@ -5,7 +5,6 @@ import movieRoutes from './routes/movieRoutes';
 import userRoutes from './routes/userRoutes';
 import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
-import verifyToken from './middleware/authMiddleware';
 import swaggerJSDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 
@@ -19,7 +18,7 @@ app.use(
   cors({
     origin: '*',
     exposedHeaders: ['encrypted-key'],
-  })
+  }),
 );
 
 const options = {
@@ -61,36 +60,6 @@ const specs = swaggerJSDoc(options);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 dotenv.config();
-
-const userActionLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 20,
-  message: 'rate_limiter.error_too_many_requests_edit',
-});
-
-const authLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 5,
-  message: 'rate_limiter.error_too_many_requests_movie_actions',
-});
-
-// app.use('/api/search', searchLimiter);
-// app.use('/api/favourite/add', verifyToken, userActionLimiter);
-// app.use('/api/favourite/list', verifyToken, userActionLimiter);
-// app.use('/api/favourite/delete', verifyToken, userActionLimiter);
-// app.use('/api/favourite/clear', verifyToken, userActionLimiter);
-
-// app.use('/api/watch-later/add', verifyToken, userActionLimiter);
-// app.use('/api/watch-later/list', verifyToken, userActionLimiter);
-// app.use('/api/watch-later/clear', verifyToken, userActionLimiter);
-
-// app.use('/api/watched/add', verifyToken, userActionLimiter);
-// app.use('/api/watched/list', verifyToken, userActionLimiter);
-// app.use('/api/watched/clear', verifyToken, userActionLimiter);
-
-// app.use('/api/watch/delete', verifyToken, userActionLimiter);
-
-// app.use('/api/user/update-user', verifyToken, authLimiter);
 
 // Use the router for '/api' routes
 app.use('/api', movieRoutes);
