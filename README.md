@@ -4,7 +4,7 @@
 
 The idea is simple: search for movies, explore their details, and keep track of the movies you want to watch, have already watched, or want to save as favourites.
 
-The project started as a learning project during my internship and gradually grew into a more complete application with authentication, a backend API, a PostgreSQL database, user profiles, movie statistics, and a few fun features such as a movie recommendation spin wheel.
+This started as a learning project during my internship and gradually grew into a more complete application with authentication, a backend API, a PostgreSQL database, user profiles, movie statistics, and a few fun features such as a movie recommendation spin wheel.
 
 **Live application:** [MovieSync](https://moviesync-xi.vercel.app)
 
@@ -12,10 +12,7 @@ The project started as a learning project during my internship and gradually gre
 
 ## Project Preview
 
-<!-- Add a screenshot of the main MovieSync screen here. -->
-<!-- Example: ![MovieSync Home](./screenshots/home.png) -->
-
-> **Add project screenshot here**
+![MovieSync Home](./img/home.png)
 
 ---
 
@@ -46,9 +43,7 @@ The profile section brings the user's movie activity together in one place.
 
 It includes information and visual statistics based on the movies saved by the user, giving them a quick overview of their movie-watching habits.
 
-<!-- Add a screenshot of the profile/statistics page here. -->
-
-> **Add profile screenshot here**
+![MovieSync - Profile](./img/user-profile.png)
 
 ### Movie recommendation spin wheel
 
@@ -56,9 +51,7 @@ Sometimes you know you want to watch something but cannot decide what.
 
 MovieSync includes a **Spin Wheel** that can randomly pick movies from the user's saved collection. The user can choose how many recommendations they want and let the wheel decide.
 
-<!-- Add a screenshot of the spin wheel here. -->
-
-> **Add spin wheel screenshot here**
+![MovieSync - Spin The Wheel](./img/spint-the-wheel.png)
 
 ### Authentication
 
@@ -74,57 +67,74 @@ The application also includes internationalization using **i18next** and **react
 
 # Screenshots
 
-This section is intentionally kept ready for screenshots that I can add as the project evolves.
-
-## Home / Featured Movies
+## Featured Movies
 
 <!-- Add image here -->
 
-![Home page placeholder](./screenshots/home.png)
+![MovieSync - Trending](./img/trending.png)
 
 ## Search
 
-<!-- Add image here -->
+![MovieSync - Search](./img/search.png)
 
-![Search page placeholder](./screenshots/search.png)
+<!-- ## Movie Details
 
-## Movie Details
-
-<!-- Add image here -->
-
-![Movie details placeholder](./screenshots/movie-details.png)
+![Movie details placeholder](./screenshots/movie-details.png) -->
 
 ## Favourites
 
 <!-- Add image here -->
 
-![Favourites placeholder](./screenshots/favourites.png)
+![MovieSync - Favourites movies](./img/favourites.png)
 
 ## Watch Later
 
 <!-- Add image here -->
 
-![Watch Later placeholder](./screenshots/watch-later.png)
+![MovieSync - Watch later movies](./img/watch-later.png)
 
 ## Watched Movies
 
 <!-- Add image here -->
 
-![Watched movies placeholder](./screenshots/watched.png)
+![MovieSync - Watched movies](./img/watched.png)
 
 ## User Profile
 
 <!-- Add image here -->
 
-![Profile placeholder](./screenshots/profile.png)
+![MovieSync - Profile](./img/user-profile.png)
 
 ## Movie Spin Wheel
 
 <!-- Add image here -->
 
-![Spin wheel placeholder](./screenshots/spin-wheel.png)
+![MovieSync - Spin The Wheel](./img/spint-the-wheel.png)
 
-> **Note:** The image paths above are examples. Create a `screenshots` folder in the repository and add your images there, or replace the paths with wherever you decide to store them.
+---
+
+# A simplified view of the application
+
+```text
+                 ┌─────────────────────┐
+                 │      MovieSync      │
+                 │   React Frontend    │
+                 └──────────┬──────────┘
+                            │
+                 API requests / responses
+                            │
+                 ┌──────────▼──────────┐
+                 │    Express API      │
+                 │   Node + TypeScript │
+                 └───────┬───────┬─────┘
+                         │       │
+              ┌──────────▼─┐   ┌▼─────────────┐
+              │ PostgreSQL │   │    OMDb API  │
+              │  Database  │   │ Movie data   │
+              └────────────┘   └──────────────┘
+```
+
+The frontend handles the user interface and application state. The backend provides API endpoints and handles database operations, while the OMDb API provides movie information.
 
 ---
 
@@ -168,67 +178,6 @@ MovieSync has a separate frontend and backend.
 - **Vercel** – frontend deployment
 
 ---
-
-# How the application is structured
-
-The repository is split into two main applications:
-
-```text
-MovieSync
-│
-├── frontend/       # React + TypeScript + Vite
-│   └── src/
-│       ├── api/
-│       ├── auth/
-│       ├── components/
-│       ├── i18n/
-│       ├── pages/
-│       ├── redux/
-│       ├── routes/
-│       ├── theme/
-│       └── utils/
-│
-└── backend/        # Node.js + Express + TypeScript
-    ├── controllers/
-    ├── middleware/
-    ├── routes/
-    ├── security/
-    ├── docs/
-    └── db.ts
-```
-
-This separation helped me understand how a frontend application communicates with a backend API and how the backend interacts with a relational database.
-
----
-
-# A simplified view of the application
-
-```text
-                 ┌─────────────────────┐
-                 │      MovieSync       │
-                 │   React Frontend     │
-                 └──────────┬──────────┘
-                            │
-                 API requests / responses
-                            │
-                 ┌──────────▼──────────┐
-                 │    Express API      │
-                 │   Node + TypeScript │
-                 └───────┬───────┬─────┘
-                         │       │
-              ┌──────────▼─┐   ┌▼─────────────┐
-              │ PostgreSQL │   │    OMDb API  │
-              │  Database  │   │ Movie data   │
-              └────────────┘   └──────────────┘
-```
-
-The frontend handles the user interface and application state. The backend provides API endpoints and handles database operations, while the OMDb API provides movie information.
-
----
-
-# What I learned from building MovieSync
-
-MovieSync became much more than a React component practice project. It gave me an opportunity to work through many of the problems that appear when building a larger application.
 
 ### React and frontend development
 
@@ -295,106 +244,6 @@ This separation is useful because the application does not need to store an enti
 
 ---
 
-# Running the project locally
-
-The frontend and backend are separate applications, so they need to be installed and run independently.
-
-## 1. Clone the repository
-
-```bash
-git clone https://github.com/purnimakumarr/moviesync.git
-cd moviesync
-```
-
-## 2. Start the backend
-
-```bash
-cd backend
-npm install
-npm run serve
-```
-
-The backend development script compiles TypeScript while running the server with Nodemon.
-
-## 3. Start the frontend
-
-Open another terminal:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The frontend is a Vite application.
-
-### Production build
-
-For the frontend:
-
-```bash
-npm run build
-npm run preview
-```
-
-The repository also contains a `prod` script for running the frontend build and preview together.
-
----
-
-# Environment Variables
-
-The application uses environment variables for configuration and secrets.
-
-You will need to configure the required values for:
-
-- OMDb API access
-- Frontend authentication configuration
-- Backend authentication configuration
-- PostgreSQL connection details
-- Backend API URL
-
-Do not commit `.env` files or secret keys to the repository.
-
-The exact variables depend on the environment in which you are running MovieSync.
-
----
-
-# Project Structure
-
-### Frontend
-
-The frontend is organized by responsibility rather than keeping everything in a single folder.
-
-```text
-src/
-├── api/          # API-related code
-├── auth/         # Authentication helpers
-├── components/   # Reusable UI components
-├── i18n/         # Internationalization
-├── pages/        # Main application pages
-├── redux/        # Redux store and slices
-├── routes/       # Application routing
-├── theme/        # MUI theme configuration
-├── utils/        # Shared utility functions
-├── App.tsx       # Main application component
-└── main.tsx      # Application entry point
-```
-
-### Backend
-
-```text
-backend/
-├── controllers/  # Request handling and business logic
-├── middleware/   # Express middleware
-├── routes/       # API routes
-├── security/     # Authentication/security helpers
-├── docs/         # API documentation
-├── db.ts         # PostgreSQL connection
-└── index.ts      # Server entry point
-```
-
----
-
 # Learning Journey
 
 MovieSync started as a project for learning React, but building it exposed me to much more than just React components.
@@ -443,9 +292,3 @@ Some ideas I would like to explore as the project continues to evolve:
 - Add automated frontend and backend tests
 - Improve API documentation
 - Continue improving the authentication flow
-
----
-
-## Repository
-
-[View MovieSync on GitHub](https://github.com/purnimakumarr/moviesync)
