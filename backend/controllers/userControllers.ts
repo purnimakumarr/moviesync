@@ -22,7 +22,8 @@ export const createUser = async (
 
     const userIDHash = crypto.createHash('sha256').update(userID).digest('hex');
 
-    // Check if user exists
+    // This endpoint is intentionally idempotent: it ensures that an
+    // authenticated Auth0 user has a corresponding application user.
     const existingUser = await pool.query(
       `SELECT 
          pgp_sym_decrypt(first_name::bytea, $1) AS "firstName", 
@@ -37,24 +38,56 @@ export const createUser = async (
     );
 
     if (existingUser.rows.length > 0) {
-      res.status(200).json(existingUser.rows[0]);
+      res.status(200).json({
+        message: 'User already exists',
+        created: false,
+        user: existingUser.rows[0],
+      });
       return;
     }
 
-    // If user doesn't exist, create new user
     const newUser = await pool.query(
-      `INSERT INTO users_yn085 (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING 
-        RETURNING 
-        pgp_sym_decrypt(first_name::bytea, $2) AS "firstName",
-        pgp_sym_decrypt(middle_name::bytea, $2) AS "middleName",
-        pgp_sym_decrypt(last_name::bytea, $2) AS "lastName",
-        pgp_sym_decrypt(phone::bytea, $2) AS "phone",
-        pgp_sym_decrypt(dob::bytea, $2) AS "dob",
-        pgp_sym_decrypt(country::bytea, $2) AS country`,
+      `INSERT INTO users_yn085 (user_id) VALUES ($1)
+       ON CONFLICT (user_id) DO NOTHING
+       RETURNING 
+         pgp_sym_decrypt(first_name::bytea, $2) AS "firstName",
+         pgp_sym_decrypt(middle_name::bytea, $2) AS "middleName",
+         pgp_sym_decrypt(last_name::bytea, $2) AS "lastName",
+         pgp_sym_decrypt(phone::bytea, $2) AS "phone",
+         pgp_sym_decrypt(dob::bytea, $2) AS "dob",
+         pgp_sym_decrypt(country::bytea, $2) AS "country"`,
       [userIDHash, encryptionKey],
     );
 
-    res.status(200).json({ message: 'User created', user: newUser.rows[0] });
+    // A concurrent request may have inserted the user after the SELECT above.
+    // In that case, fetch the existing row instead of returning undefined.
+    if (newUser.rows.length === 0) {
+      const concurrentUser = await pool.query(
+        `SELECT 
+           pgp_sym_decrypt(first_name::bytea, $1) AS "firstName", 
+           pgp_sym_decrypt(middle_name::bytea, $1) AS "middleName", 
+           pgp_sym_decrypt(last_name::bytea, $1) AS "lastName", 
+           pgp_sym_decrypt(phone::bytea, $1) AS "phone", 
+           pgp_sym_decrypt(dob::bytea, $1) AS "dob", 
+           pgp_sym_decrypt(country::bytea, $1) AS "country"
+         FROM users_yn085
+         WHERE user_id = $2`,
+        [encryptionKey, userIDHash],
+      );
+
+      res.status(200).json({
+        message: 'User already exists',
+        created: false,
+        user: concurrentUser.rows[0],
+      });
+      return;
+    }
+
+    res.status(201).json({
+      message: 'User created',
+      created: true,
+      user: newUser.rows[0],
+    });
   } catch (error) {
     console.error('Error in createUser:', error);
     res.status(500).json({ error: 'Internal Server Error' });
