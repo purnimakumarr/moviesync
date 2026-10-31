@@ -13,7 +13,7 @@ export const createUser = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { userID } = req.body;
+    const userID = req.user?.email;
 
     if (!userID) {
       res.status(400).json({ error: 'User email is required' });
@@ -103,11 +103,11 @@ export const updateUser = async (
       firstName,
       middleName = null,
       lastName,
-      userID,
       phone = null,
       dob = null,
       country = null,
     } = req.body;
+    const userID = req.user?.email;
 
     if (!userID) {
       res.status(400).json({ error: 'User email is required' });
@@ -163,7 +163,7 @@ export const updateUser = async (
 
 export const getUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { userID } = req.body;
+    const userID = req.user?.email;
 
     if (!userID) {
       res.status(400).json({ error: 'User email is required' });
