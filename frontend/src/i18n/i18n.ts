@@ -20,7 +20,8 @@ i18n
     },
     supportedLngs: ['en', 'hi', 'it', 'ja', 'fr'],
     fallbackLng: 'en',
-    debug: true,
+    // Verbose logging only while developing; never in tests or production.
+    debug: import.meta.env.MODE === 'development',
     interpolation: {
       escapeValue: false,
     },
