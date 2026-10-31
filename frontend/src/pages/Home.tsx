@@ -57,9 +57,16 @@ const Home = () => {
         '&:hover': { borderColor: theme.palette.primary.main, backgroundColor: `${theme.palette.primary.main}22` },
     };
 
-    const posters = featured
-        .filter((movie) => movie.poster_path)
+    const watchLater = useSelector((store: RootState) => store.watch.watchLater);
+    const watchLaterLoading = useSelector((store: RootState) => store.watch.loadingWatchLater);
+    const upNext = Object.values(watchLater).filter((movie) => movie.poster_path);
+
+    // Signed-in users see their Watch Later queue; everyone else (and anyone
+    // with an empty queue) sees what's trending, to explore.
+    const showUpNext = isAuthenticated && (upNext.length > 0 || watchLaterLoading);
+    const posters = (showUpNext ? upNext : featured.filter((movie) => movie.poster_path))
         .slice(0, POSTER_STRIP_SIZE);
+    const postersLoading = showUpNext ? watchLaterLoading : featuredLoading;
 
     const features = [
         { icon: <CollectionsBookmarkIcon />, title: t("home.feature_lists_title"), body: t("home.feature_lists_body"), path: '/favourites', requiresAuth: true },
@@ -170,8 +177,21 @@ const Home = () => {
 
             {isAuthenticated && <YourShelf />}
 
-            {/* Poster strip: a glimpse of what's trending */}
-            {featuredLoading && posters.length === 0 && (
+            {/* Poster strip: Up next for signed-in users, trending for everyone else */}
+            <Stack direction="row" alignItems="baseline" justifyContent="space-between" gap={2} sx={{ mb: 1.5 }}>
+                <Typography id="home-strip" variant="h5" component="h2" sx={{ fontWeight: 800 }}>
+                    {showUpNext ? t("home.up_next") : t("trending.new_and_trending")}
+                </Typography>
+                <Typography
+                    component={Link}
+                    to={showUpNext ? '/watch-later' : '/featured'}
+                    variant="body2"
+                    sx={{ color: theme.palette.text.secondary, fontWeight: 600, '&:hover': { color: theme.palette.text.primary } }}
+                >
+                    {t("home.see_all")}
+                </Typography>
+            </Stack>
+            {postersLoading && posters.length === 0 && (
                 <Box
                     aria-busy="true"
                     sx={{
@@ -192,7 +212,7 @@ const Home = () => {
             {posters.length > 0 && (
                 <Box
                     component="section"
-                    aria-label={t("trending.new_and_trending")}
+                    aria-labelledby="home-strip"
                     sx={{
                         display: 'grid',
                         gridAutoFlow: 'column',

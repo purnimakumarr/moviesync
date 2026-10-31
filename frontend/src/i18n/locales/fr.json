@@ -56,7 +56,8 @@
     "spin_teaser_title": "Vous ne savez pas quoi regarder ?",
     "spin_teaser_body": "Laissez la roue décider, ou choisissez un genre pour commencer.",
     "spin_teaser_cta": "Faire tourner la roue",
-    "pick_a_genre": "Choisir un genre"
+    "pick_a_genre": "Choisir un genre",
+    "see_all": "Tout voir"
   },
   "search": {
     "search_title": "Rechercher un titre*",
