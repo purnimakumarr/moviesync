@@ -5,8 +5,8 @@ import { Select, MenuItem, SelectChangeEvent, Tooltip, Stack, useTheme, useMedia
 import PaletteIcon from '@mui/icons-material/Palette';
 
 import { ThemeContext } from '../../theme/ThemeContext';
+import { PaletteKey, paletteSwatches } from '../../theme/palettes';
 
-type PaletteKeys = 'classic' | 'fantasy' | 'horror' | 'theatre' | 'indie' | 'melodic_haze';
 
 const ThemeSwitcher = () => {
     const themeContext = useContext(ThemeContext);
@@ -25,19 +25,15 @@ const ThemeSwitcher = () => {
     ];
 
     const handleChangeTheme = (e: SelectChangeEvent<string>) => {
-        localStorage.setItem('palette', e.target.value);
-        changePalette(e.target.value as PaletteKeys);
+        changePalette(e.target.value as PaletteKey);
     };
 
-    const handleRenderValue = (selected: string) => {
-        const selectedItem = themes.find((theme) => theme.value === selected);
-        return (
-            <Stack direction='row' sx={{ justifyContent: 'center', alignItems: 'center', gap: '0.6rem' }}>
-                <PaletteIcon sx={{ fontSize: '2rem', color: 'primary.main' }} />
-                <span>{selectedItem ? selectedItem.label : ''}</span>
-            </Stack>
-        );
-    };
+    // Compact in the header: just the palette icon; names show in the menu.
+    const handleRenderValue = () => (
+        <Stack direction='row' sx={{ justifyContent: 'center', alignItems: 'center' }}>
+            <PaletteIcon sx={{ fontSize: '1.5rem', color: 'primary.main' }} />
+        </Stack>
+    );
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const open = Boolean(anchorEl);
@@ -47,7 +43,7 @@ const ThemeSwitcher = () => {
         setAnchorEl(event.currentTarget);
     };
 
-    const handleClose = (event?: React.MouseEvent<HTMLElement>, palette?: PaletteKeys) => {
+    const handleClose = (event?: React.MouseEvent<HTMLElement>, palette?: PaletteKey) => {
         if (event) event.stopPropagation();
         if (palette) changePalette(palette);
         setAnchorEl(null);
@@ -74,7 +70,7 @@ const ThemeSwitcher = () => {
                 onClick={(event) => event.stopPropagation()}
             >
                 {themes.map((theme) => (
-                    <MenuItem key={theme.value} onClick={(event) => handleClose(event, theme.value as PaletteKeys)}>
+                    <MenuItem key={theme.value} onClick={(event) => handleClose(event, theme.value as PaletteKey)}>
                         {theme.label}
                     </MenuItem>
                 ))}
@@ -83,85 +79,23 @@ const ThemeSwitcher = () => {
     ) : (
         /* Desktop Version */
         <Tooltip title={t("header.switch_theme")} placement="left">
-            <Select value={selectedPalette} onChange={handleChangeTheme} renderValue={handleRenderValue} sx={{ borderRadius: '12px' }} size="small">
-                <MenuItem value="classic" sx={{ marginY: 2 }}>
-                    <Stack gap={1} sx={{ justifyContent: 'center' }}>
-                        <span>{t("header.timeless")}</span>
-                        <Stack direction='row' gap={3} sx={{
-                            justifyContent: 'center', alignItems: 'center', borderRadius: '12px', padding: 2, backgroundColor: theme.palette.secondary.main
-                        }}>
-                            <span className='theme-color' style={{ backgroundColor: '#1B1B1B' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#4F4F4F' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#D1D1D1' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#f5f5f5' }}></span>
+            <Select value={selectedPalette} onChange={handleChangeTheme} renderValue={handleRenderValue} sx={{ borderRadius: '12px' }} size="small" inputProps={{ 'aria-label': t("header.switch_theme") }}>
+                {themes.map(({ value, label }) => (
+                    <MenuItem key={value} value={value} sx={{ my: 0.5 }}>
+                        <Stack gap={1} sx={{ width: '100%' }}>
+                            <span>{label}</span>
+                            <Stack direction='row' gap={1} aria-hidden>
+                                {paletteSwatches(value as PaletteKey).map((colour) => (
+                                    <span
+                                        key={colour}
+                                        className='theme-color'
+                                        style={{ backgroundColor: colour, boxShadow: `0 0 0 1px ${theme.palette.divider}` }}
+                                    />
+                                ))}
+                            </Stack>
                         </Stack>
-                    </Stack>
-                </MenuItem>
-                <MenuItem value="fantasy" sx={{ marginY: 2 }}>
-                    <Stack gap={1} sx={{ justifyContent: 'center' }}>
-                        <span>{t("header.enchanted")}</span>
-                        <Stack direction='row' gap={3} sx={{
-                            justifyContent: 'center', alignItems: 'center', borderRadius: '12px', padding: 2, backgroundColor: theme.palette.secondary.main
-                        }}>
-                            <span className='theme-color' style={{ backgroundColor: '#4A0E61' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#7B1FA2' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#FFDFEF' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#FFEBEE' }}></span>
-                        </Stack>
-                    </Stack>
-                </MenuItem>
-                <MenuItem value="indie" sx={{ marginY: 2 }}>
-                    <Stack gap={1} sx={{ justifyContent: 'center' }}>
-                        <span>{t("header.indie_flick")}</span>
-                        <Stack direction='row' gap={3} sx={{
-                            justifyContent: 'center', alignItems: 'center', borderRadius: '12px', padding: 2, backgroundColor: theme.palette.secondary.main
-                        }}>
-                            <span className='theme-color' style={{ backgroundColor: '#795548' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#4E342E' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#D7CCC8' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#FFEBEE' }}></span>
-                        </Stack>
-                    </Stack>
-                </MenuItem>
-                <MenuItem value="theatre" sx={{ marginY: 2 }}>
-                    <Stack gap={1} sx={{ justifyContent: 'center' }}>
-                        <span>{t("header.broadway_lights")}</span>
-                        <Stack direction='row' gap={3} sx={{
-                            justifyContent: 'center', alignItems: 'center', borderRadius: '12px', padding: 2, backgroundColor: theme.palette.secondary.main
-                        }}>
-                            <span className='theme-color' style={{ backgroundColor: '#FF9800' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#E65100' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#FFEFD6' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#FFEBEE' }}></span>
-                        </Stack>
-                    </Stack>
-                </MenuItem>
-                <MenuItem value="melodic_haze" sx={{ marginY: 2 }}>
-                    <Stack gap={1} sx={{ justifyContent: 'center' }}>
-                        <span>{t("header.scarlet_frames")}</span>
-                        <Stack direction='row' gap={3} sx={{
-                            justifyContent: 'center', alignItems: 'center', borderRadius: '12px', padding: 2, backgroundColor: theme.palette.secondary.main
-                        }}>
-                            <span className='theme-color' style={{ backgroundColor: '#3D0301' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#B03052' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#630F1C' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#FFEBEE' }}></span>
-                        </Stack>
-                    </Stack>
-                </MenuItem>
-                <MenuItem value="horror" sx={{ marginY: 2 }}>
-                    <Stack gap={1} sx={{ justifyContent: 'center' }}>
-                        <span>{t("header.dark_reel")}</span>
-                        <Stack direction='row' gap={3} sx={{
-                            justifyContent: 'center', alignItems: 'center', borderRadius: '12px', padding: 2, backgroundColor: theme.palette.secondary.main
-                        }}>
-                            <span className='theme-color' style={{ backgroundColor: '#B71C1C' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#212121' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#484848' }}></span>
-                            <span className='theme-color' style={{ backgroundColor: '#000000' }}></span>
-                        </Stack>
-                    </Stack>
-                </MenuItem>
+                    </MenuItem>
+                ))}
             </Select >
         </Tooltip >
     );

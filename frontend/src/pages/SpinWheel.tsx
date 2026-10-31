@@ -1,59 +1,83 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useReducedMotion } from 'framer-motion';
 
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
   Card,
   CardContent,
-  Checkbox,
   Chip,
-  FormControl,
-  FormControlLabel,
-  InputLabel,
-  MenuItem,
-  Select,
-  Slider,
   Stack,
+  TextField,
   Typography,
+  useMediaQuery,
   useTheme,
 } from '@mui/material';
+import Grid from '@mui/material/Grid2';
+import { visuallyHidden } from '@mui/utils';
 import CasinoIcon from '@mui/icons-material/Casino';
-import ReplayIcon from '@mui/icons-material/Replay';
+import TuneIcon from '@mui/icons-material/Tune';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
-import BackButton from '../components/common/BackButton';
-import MovieCard from '../components/common/MovieCard';
-import { axiosPublic } from '../api/axiosConfig';
+import PageHeader from '../components/common/PageHeader';
+import Wheel from '../components/spinWheel/Wheel';
+import WheelFilters from '../components/spinWheel/WheelFilters';
+import WinnerReveal from '../components/spinWheel/WinnerReveal';
+import ResultPanel from '../components/spinWheel/ResultPanel';
+import { axiosPrivate, axiosPublic } from '../api/axiosConfig';
+import { useIsAuthenticated } from '../auth/authHooks';
 import { RootState } from '../redux/store';
-import { Movie } from '../types';
+import { WheelPick } from '../types';
+import {
+  buildWheelSegments,
+  ContentTypeFilter,
+  countActiveFilters,
+  DEFAULT_YEAR_RANGE,
+  RecommendationCount,
+  filterCandidates,
+  getRandomMovies,
+  rotationToLand,
+  uniqueMovies,
+  WheelSegment,
+  WHEEL_GENRES,
+} from '../utils/spinWheel';
+import { getTitle, movieKey } from '../utils/tmdb';
 
 const API_URL =
   import.meta.env.MODE === 'production'
     ? import.meta.env.VITE_BACKEND_URL_PROD
     : import.meta.env.VITE_BACKEND_URL_DEV;
 
-type ContentTypeFilter = 'both' | 'movie' | 'series';
+const MAX_MOOD_LENGTH = 200;
+// With a mood, fetch the closest few matches per pick and choose randomly
+// among them, so spins vary without drifting far from the mood.
+const MOOD_POOL_FACTOR = 3;
+const MIN_MOOD_POOL = 9;
+const SPIN_DURATION_MS = 4200;
+const REDUCED_SPIN_DURATION_MS = 300;
+const SPIN_TURNS = 5;
 
-const currentYear = new Date().getFullYear();
-
-const uniqueMovies = (movies: Movie[]) => {
-  const byId = new Map<string, Movie>();
-  movies.forEach((movie) => byId.set(movie.imdbID, movie));
-  return Array.from(byId.values());
-};
-
-const getStartYear = (year: string) => {
-  return parseInt(year?.match(/\d{4}/)?.[0] || '', 10);
-};
-
-const RECOMMENDATION_OPTIONS = [1, 3, 5, 7, 10] as const;
-
-type RecommendationCount = (typeof RECOMMENDATION_OPTIONS)[number];
+type Picks = { movies: WheelPick[]; pool: WheelPick[]; moodApplied: boolean };
 
 export default function SpinWheel() {
   const theme = useTheme();
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const isAuthenticated = Boolean(useIsAuthenticated());
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+  // Wide enough for filters, wheel and result side by side.
+  const isWide = useMediaQuery(theme.breakpoints.up('lg'));
+  const reduceMotion = useReducedMotion();
+  const spinDurationMs = reduceMotion ? REDUCED_SPIN_DURATION_MS : SPIN_DURATION_MS;
+
   const favourites = useSelector((store: RootState) => store.favourites.details);
   const watchLater = useSelector((store: RootState) => store.watch.watchLater);
   const watched = useSelector((store: RootState) => store.watch.watched);
@@ -69,302 +93,339 @@ export default function SpinWheel() {
   );
   const watchedIds = useMemo(() => new Set(Object.keys(watched)), [watched]);
 
-  const genreOptions = useMemo(() => {
-    const genres = new Set<string>();
-    savedMovies.forEach((movie) => {
-      movie.Genre?.split(', ')
-        .filter(Boolean)
-        .forEach((genre) => genres.add(genre));
-    });
-    return Array.from(genres).sort();
-  }, [savedMovies]);
-
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [type, setType] = useState<ContentTypeFilter>('both');
-  const [yearRange, setYearRange] = useState<[number, number]>([1980, currentYear]);
+  const [yearRange, setYearRange] = useState<[number, number]>(DEFAULT_YEAR_RANGE);
   const [excludeWatched, setExcludeWatched] = useState(true);
-  // const [candidates, setCandidates] = useState<Movie[]>([]);
-  const [winners, setWinners] = useState<Movie[]>([]);
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [recommendationCount, setRecommendationCount] = useState<RecommendationCount>(3);
+  const [mood, setMood] = useState('');
+  const [smartSpin, setSmartSpin] = useState(false);
 
-  const fallbackCandidates = useMemo(() => {
-    return savedMovies.filter((movie) => {
-      const year = getStartYear(movie.Year);
-      const matchesGenre =
-        selectedGenres.length === 0 ||
-        selectedGenres.some((genre) => movie.Genre?.includes(genre));
-      const matchesType = type === 'both' || movie.Type === type;
-      const matchesYear = year >= yearRange[0] && year <= yearRange[1];
-      const isAllowed = !excludeWatched || !watchedIds.has(movie.imdbID);
+  const [winners, setWinners] = useState<WheelPick[]>([]);
+  const [spinSegments, setSpinSegments] = useState<WheelSegment<WheelPick>[] | null>(null);
+  const [rotation, setRotation] = useState(0);
+  const [winnerIndex, setWinnerIndex] = useState<number | null>(null);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-      return matchesGenre && matchesType && matchesYear && isAllowed;
-    });
-  }, [excludeWatched, savedMovies, selectedGenres, type, watchedIds, yearRange]);
+  const winnerHeadingRef = useRef<HTMLHeadingElement>(null);
+  const revealTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(revealTimer.current), []);
 
-  const getRandomMovies = (
-    movies: Movie[],
-    count: number
-  ): Movie[] => {
-    const shuffled = [...movies];
+  // Moves focus to the result once it has rendered (an effect runs after the
+  // commit, so the heading is guaranteed to be there).
+  useEffect(() => {
+    if (winners.length > 0) winnerHeadingRef.current?.focus();
+  }, [winners]);
 
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+  // Before the first spin the wheel shows the user's saved titles.
+  const idleSegments = useMemo(() => buildWheelSegments<WheelPick>([], savedMovies), [savedMovies]);
+  const segments = spinSegments ?? idleSegments;
 
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  const fallbackCandidates = useMemo(
+    () =>
+      filterCandidates(savedMovies, {
+        genres: selectedGenres,
+        type,
+        yearRange,
+        excludeWatched,
+        watchedIds,
+      }),
+    [excludeWatched, savedMovies, selectedGenres, type, watchedIds, yearRange],
+  );
+
+  // Puts the picks on the wheel, spins it so the first pick stops under the
+  // pointer, then reveals the result once the animation has finished.
+  const spinTo = (picks: WheelPick[], pool: WheelPick[]) => {
+    const nextSegments = buildWheelSegments(picks, [...pool, ...savedMovies]);
+    const winnerIndex = nextSegments.findIndex(
+      (segment) => segment.movie && movieKey(segment.movie) === movieKey(picks[0]),
+    );
+
+    setWinners([]);
+    setSpinSegments(nextSegments);
+    setWinnerIndex(winnerIndex);
+    setRotation((current) =>
+      rotationToLand(winnerIndex, nextSegments.length, current, reduceMotion ? 0 : SPIN_TURNS),
+    );
+
+    revealTimer.current = window.setTimeout(() => {
+      setWinners(picks);
+      setIsSpinning(false);
+    }, spinDurationMs);
+  };
+
+  const pickFromSaved = (errorMessage: string) => {
+    if (fallbackCandidates.length === 0) {
+      setWinners([]);
+      setError(errorMessage);
+      setIsSpinning(false);
+      return;
     }
+    spinTo(getRandomMovies(fallbackCandidates, recommendationCount), fallbackCandidates);
+  };
 
-    return shuffled.slice(0, count);
+  const filters = {
+    genres: selectedGenres,
+    type,
+    fromYear: yearRange[0],
+    toYear: yearRange[1],
+    mood: mood.trim(),
+  };
+
+  // Server-side draw weighted by the user's saved lists.
+  const smartSpinPicks = async (): Promise<Picks> => {
+    const response = await axiosPrivate.post(`${API_URL}/api/wheel/smart`, {
+      ...filters,
+      excludeWatched,
+      count: recommendationCount,
+    });
+    const movies: WheelPick[] = response.data.movies ?? [];
+    return { movies, pool: [], moodApplied: Boolean(response.data.moodApplied) };
+  };
+
+  const randomPicks = async (): Promise<Picks> => {
+    const response = await axiosPublic.post(`${API_URL}/api/wheel/candidates`, {
+      ...filters,
+      exclude: excludeWatched
+        ? Object.values(watched).map(({ id, media_type }) => ({ id, media_type }))
+        : [],
+      limit: filters.mood
+        ? Math.max(recommendationCount * MOOD_POOL_FACTOR, MIN_MOOD_POOL)
+        : 50,
+    });
+    const candidates: WheelPick[] = response.data.success ? response.data.movies : [];
+    return {
+      movies: getRandomMovies(candidates, recommendationCount),
+      pool: candidates,
+      moodApplied: Boolean(response.data.moodApplied),
+    };
   };
 
   const spin = async () => {
+    if (isSpinning) return;
     setError(null);
+    setNotice(null);
     setIsSpinning(true);
 
     try {
-      const response = await axiosPublic.post(`${API_URL}/api/wheel/candidates`, {
-        genres: selectedGenres,
-        type,
-        fromYear: yearRange[0],
-        toYear: yearRange[1],
-        excludeImdbIDs: excludeWatched ? Array.from(watchedIds) : [],
-        limit: 50,
-      });
+      const { movies, pool, moodApplied } =
+        smartSpin && isAuthenticated ? await smartSpinPicks() : await randomPicks();
 
-      const backendCandidates = response.data.success ? response.data.movies : [];
-      const nextCandidates =
-        backendCandidates.length > 0 ? backendCandidates : fallbackCandidates;
+      if (filters.mood && !moodApplied) {
+        setNotice(t('spin_wheel.notice_mood_unavailable'));
+      }
 
-      if (nextCandidates.length === 0) {
-        setWinners([]);
-        // setCandidates([]);
-        setError('No matches yet. Search and save more titles, or loosen the filters.');
-        setIsSpinning(false);
+      if (movies.length === 0) {
+        pickFromSaved(t('spin_wheel.error_no_matches'));
         return;
       }
 
-      const count = Math.min(
-        recommendationCount,
-        nextCandidates.length
-      );
-
-      const selected = getRandomMovies(nextCandidates, count);
-
-      // setCandidates(nextCandidates);
-      window.setTimeout(() => {
-        setWinners(selected);
-        setIsSpinning(false);
-      }, 900);
+      spinTo(movies, pool);
     } catch {
-      if (fallbackCandidates.length === 0) {
-        setError('Could not fetch wheel candidates right now.');
-        setWinners([]);
-        // setCandidates([]);
-        setIsSpinning(false);
-        return;
-      }
-
-      const count = Math.min(
-        recommendationCount,
-        fallbackCandidates.length
-      );
-
-      const selected = getRandomMovies(fallbackCandidates, count);
-
-      // setCandidates(fallbackCandidates);
-      window.setTimeout(() => {
-        setWinners(selected);
-        setIsSpinning(false);
-      }, 900);
+      pickFromSaved(t('spin_wheel.error_fetch'));
     }
   };
 
+  const activeFilters = countActiveFilters(selectedGenres, type, yearRange);
+  const filtersPanel = (
+    <WheelFilters
+      genreOptions={WHEEL_GENRES}
+      genres={selectedGenres}
+      onGenresChange={setSelectedGenres}
+      count={recommendationCount}
+      onCountChange={setRecommendationCount}
+      type={type}
+      onTypeChange={setType}
+      yearRange={yearRange}
+      onYearRangeChange={setYearRange}
+      excludeWatched={excludeWatched}
+      onExcludeWatchedChange={setExcludeWatched}
+      canSmartSpin={isAuthenticated}
+      smartSpin={smartSpin}
+      onSmartSpinChange={setSmartSpin}
+    />
+  );
+
+  // On md+ screens every panel is exactly the height left under the header,
+  // page title and footer, so the page itself never scrolls. 236px covers the
+  // app bar, the dense page header, the footer and the container's padding.
+  const panelHeight = 'max(440px, calc(100dvh - 236px))';
+  // What's left for the wheel after the mood field, Spin button and padding.
+  const wheelSize = isDesktop
+    ? 'min(100%, 460px, max(240px, calc(100dvh - 450px)))'
+    : 'min(84vw, 400px)';
+
+  const panelSx = {
+    backgroundColor: theme.palette.background.primary,
+    border: `2px solid ${theme.palette.primary.main}40`,
+    borderRadius: '16px',
+  };
+  const desktopPanelSx = isDesktop ? { height: panelHeight, display: 'flex', flexDirection: 'column' as const } : {};
+
+  const [winner, ...runnersUp] = winners;
+
+  const alerts = (
+    <>
+      {error && (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
+      {notice && !error && (
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          {notice}
+        </Alert>
+      )}
+    </>
+  );
+
   return (
     <>
-      <BackButton />
-      <Box sx={{ maxWidth: 1400, mx: 'auto', p: { xs: 2, md: 4 } }}>
-        <Stack direction="row" gap={1.5} alignItems="center" sx={{ mb: 3 }}>
-          <CasinoIcon color="primary" fontSize="large" />
-          <Typography variant="h4" fontWeight={800}>
-            Spin the Wheel
-          </Typography>
-        </Stack>
+      <PageHeader
+        icon={<CasinoIcon color="primary" />}
+        title={t('spin_wheel.title')}
+        subtitle={t('spin_wheel.subtitle')}
+        dense
+      />
 
-        <Card
-          sx={{
-            backgroundColor: theme.palette.background.default,
-            border: `2px solid ${theme.palette.primary.main}`,
-            borderRadius: '12px',
-            mb: 3,
-          }}
-        >
-          <CardContent>
-            <Stack gap={3}>
-              <Stack direction={{ xs: 'column', md: 'row' }} gap={2}>
-                <FormControl fullWidth>
-                  <InputLabel id="wheel-genre-label">Genres</InputLabel>
-                  <Select
-                    labelId="wheel-genre-label"
-                    multiple
-                    label="Genres"
-                    value={selectedGenres}
-                    onChange={(event) =>
-                      setSelectedGenres(
-                        typeof event.target.value === 'string'
-                          ? event.target.value.split(',')
-                          : event.target.value,
-                      )
-                    }
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((value) => (
-                          <Chip key={value} label={value} size="small" />
-                        ))}
-                      </Box>
-                    )}
-                  >
-                    {genreOptions.map((genre) => (
-                      <MenuItem key={genre} value={genre}>
-                        {genre}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+      <Grid container spacing={{ xs: 2, md: 2.5 }} alignItems="flex-start">
+        {isDesktop && (
+          <Grid size={{ md: 4, lg: 3 }}>
+            <Card sx={{ ...panelSx, ...desktopPanelSx }}>
+              <CardContent sx={{ p: 2.5, overflowY: 'auto', flex: 1 }}>
+                <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 2 }}>
+                  <TuneIcon color="primary" />
+                  <Typography variant="h6" component="h2" sx={{ fontWeight: 800 }}>
+                    {t('spin_wheel.filters')}
+                  </Typography>
+                  {activeFilters > 0 && <Chip size="small" color="primary" label={activeFilters} />}
+                </Stack>
+                {filtersPanel}
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
 
-                <FormControl fullWidth>
-                  <InputLabel id="wheel-count-label">
-                    Recommendations
-                  </InputLabel>
+        <Grid size={{ xs: 12, md: 8, lg: 5, xl: 4 }}>
+          <Card sx={{ ...panelSx, ...desktopPanelSx }}>
+            <CardContent
+              sx={{
+                p: { xs: 2, sm: 2.5 },
+                display: 'flex',
+                flexDirection: 'column',
+                flex: 1,
+                '&:last-child': { pb: { xs: 2, sm: 2.5 } },
+              }}
+            >
+              <TextField
+                label={t('spin_wheel.mood_label')}
+                placeholder={t('spin_wheel.mood_placeholder')}
+                value={mood}
+                onChange={(event) => setMood(event.target.value.slice(0, MAX_MOOD_LENGTH))}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') spin();
+                }}
+                helperText={t('spin_wheel.mood_helper')}
+                fullWidth
+              />
 
-                  <Select
-                    labelId="wheel-count-label"
-                    label="Recommendations"
-                    value={recommendationCount}
-                    onChange={(event) =>
-                      setRecommendationCount(
-                        Number(event.target.value) as RecommendationCount
-                      )
-                    }
-                  >
-                    {RECOMMENDATION_OPTIONS.map((count) => (
-                      <MenuItem key={count} value={count}>
-                        {count}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                <FormControl fullWidth>
-                  <InputLabel id="wheel-type-label">Type</InputLabel>
-                  <Select
-                    labelId="wheel-type-label"
-                    label="Type"
-                    value={type}
-                    onChange={(event) => setType(event.target.value as ContentTypeFilter)}
-                  >
-                    <MenuItem value="both">Movies & TV</MenuItem>
-                    <MenuItem value="movie">Movies</MenuItem>
-                    <MenuItem value="series">TV Shows</MenuItem>
-                  </Select>
-                </FormControl>
-              </Stack>
-
-              <Box>
-                <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>
-                  Release year: {yearRange[0]} - {yearRange[1]}
-                </Typography>
-                <Slider
-                  value={yearRange}
-                  min={1920}
-                  max={currentYear}
-                  onChange={(_, value) => setYearRange(value as [number, number])}
-                  valueLabelDisplay="auto"
+              <Box sx={{ flex: 1, display: 'grid', placeItems: 'center', py: { xs: 3, md: 2 } }}>
+                <Wheel
+                  segments={segments}
+                  rotation={rotation}
+                  durationMs={spinDurationMs}
+                  label={t('spin_wheel.wheel_label', { count: segments.length })}
+                  size={wheelSize}
+                  highlightIndex={winner && !isSpinning ? winnerIndex : null}
                 />
               </Box>
 
-              <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                gap={2}
-                alignItems={{ xs: 'stretch', sm: 'center' }}
-              >
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={excludeWatched}
-                      onChange={(event) => setExcludeWatched(event.target.checked)}
-                    />
-                  }
-                  label="Exclude already watched"
-                />
+              <Stack alignItems="center" gap={1}>
                 <Button
                   variant="contained"
-                  startIcon={winners.length > 0 ? <ReplayIcon /> : <CasinoIcon />}
+                  size="large"
+                  startIcon={<CasinoIcon />}
                   onClick={spin}
                   disabled={isSpinning}
-                  sx={{ ml: { sm: 'auto' }, fontWeight: 800 }}
+                  sx={{ width: { xs: '100%', sm: 'auto' }, minWidth: { sm: 200 } }}
                 >
-                  {winners.length > 0 ? 'Spin again' : 'Spin'}
+                  {isSpinning ? t('spin_wheel.spinning') : t('spin_wheel.spin')}
                 </Button>
-              </Stack>
-            </Stack>
-          </CardContent>
-        </Card>
-
-        {error && (
-          <Alert severity="info" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
-
-        <Stack alignItems="center" gap={3}>
-          <Box
-            component={motion.div}
-            animate={{ rotate: isSpinning ? 1080 : 0 }}
-            transition={{ duration: 0.9, ease: 'easeOut' }}
-            sx={{
-              width: { xs: 120, md: 220 },
-              aspectRatio: '1 / 1',
-              borderRadius: '50%',
-              border: `10px solid ${theme.palette.primary.main}`,
-              background: `conic-gradient(${theme.palette.primary.main}, ${theme.palette.secondary.main}, ${theme.palette.background.default}, ${theme.palette.primary.main})`,
-              display: 'grid',
-              placeItems: 'center',
-              boxShadow: `0 0 28px ${theme.palette.primary.main}80`,
-            }}
-          >
-            <Typography variant="body1" fontWeight={900} textAlign="center">
-              {isSpinning
-                ? 'Picking...'
-                : `${recommendationCount} recommendation${recommendationCount > 1 ? 's' : ''
-                }`}
-            </Typography>
-          </Box>
-
-          {winners.length > 0 && !isSpinning && (
-            <Stack gap={3} alignItems="center" sx={{ width: '100%' }}>
-              <Typography variant="h5" fontWeight={800}>
-                Tonight's picks
-              </Typography>
-
-              <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                gap={3}
-                justifyContent="center"
-                alignItems="stretch"
-                flexWrap="wrap"
-              >
-                {winners.map((movie) => (
-                  <MovieCard
-                    key={movie.imdbID}
-                    movie={movie}
+                {smartSpin && isAuthenticated && (
+                  <Chip
+                    icon={<AutoAwesomeIcon />}
+                    label={t('spin_wheel.smart_spin_on')}
+                    color="primary"
+                    variant="outlined"
+                    size="small"
                   />
-                ))}
+                )}
+                {savedMovies.length === 0 && !spinSegments && (
+                  <Typography variant="body2" textAlign="center" sx={{ opacity: 0.8 }}>
+                    {t('spin_wheel.empty_wheel')}{' '}
+                    <Button size="small" onClick={() => navigate('/search')} sx={{ p: 0.5, minWidth: 0 }}>
+                      {t('app.start_searching')}
+                    </Button>
+                  </Typography>
+                )}
               </Stack>
-            </Stack>
+
+              {!isWide && alerts}
+            </CardContent>
+          </Card>
+
+          {!isDesktop && (
+            <Accordion
+              disableGutters
+              sx={{ ...panelSx, mt: 2, '&::before': { display: 'none' } }}
+            >
+              <AccordionSummary expandIcon={<ExpandMoreIcon />} aria-controls="wheel-filters" id="wheel-filters-header">
+                <Stack direction="row" alignItems="center" gap={1}>
+                  <TuneIcon color="primary" />
+                  <Typography sx={{ fontWeight: 800 }}>{t('spin_wheel.filters')}</Typography>
+                  {activeFilters > 0 && <Chip size="small" color="primary" label={activeFilters} />}
+                </Stack>
+              </AccordionSummary>
+              <AccordionDetails id="wheel-filters">{filtersPanel}</AccordionDetails>
+            </Accordion>
           )}
-        </Stack>
+        </Grid>
+
+        {isWide && (
+          // On very wide screens the result gets the extra room.
+          <Grid size={{ lg: 4, xl: 5 }}>
+            <Card sx={{ ...panelSx, ...desktopPanelSx }}>
+              <CardContent sx={{ p: 2.5, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, '&:last-child': { pb: 2.5 } }}>
+                {alerts}
+                <Box sx={{ flex: 1, minHeight: 0 }}>
+                  <ResultPanel ref={winnerHeadingRef} winner={isSpinning ? undefined : winner} runnersUp={runnersUp} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+      </Grid>
+
+      {/* Announces the result to screen readers. */}
+      <Box
+        role="status"
+        aria-live="polite"
+        sx={visuallyHidden}
+      >
+        {winner ? t('spin_wheel.announce', { title: getTitle(winner) }) : ''}
       </Box>
+
+      {winner && !isWide && (
+        <WinnerReveal
+          ref={winnerHeadingRef}
+          winner={winner}
+          runnersUp={runnersUp}
+          onSpinAgain={spin}
+          spinDisabled={isSpinning}
+        />
+      )}
     </>
   );
 }

@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { Select, MenuItem, SelectChangeEvent, Tooltip, useMediaQuery, useTheme, ListItem, ListItemButton, Menu, ListItemIcon, ListItemText } from "@mui/material";
 import LanguageIcon from "@mui/icons-material/Language";
 
+const LANGUAGE_FLAGS: Record<string, string> = { en: '🇬🇧', hi: '🇮🇳', it: '🇮🇹', ja: '🇯🇵', fr: '🇫🇷' };
+
 const LanguageSwitcher = () => {
     const { i18n, t } = useTranslation();
     const theme = useTheme();
@@ -47,7 +49,18 @@ const LanguageSwitcher = () => {
     ) : (
         /* Desktop Version */
         <Tooltip title={t("header.switch_language")} placement="left">
-            <Select sx={{ borderRadius: '12px' }} value={i18n.language} onChange={(event: SelectChangeEvent<string>) => i18n.changeLanguage(event.target.value as string)} size="small">
+            <Select
+                sx={{ borderRadius: '12px' }}
+                value={i18n.language}
+                onChange={(event: SelectChangeEvent<string>) => i18n.changeLanguage(event.target.value as string)}
+                // Compact in the header: flag and language code.
+                renderValue={(value) => {
+                    const code = value.split('-')[0];
+                    return `${LANGUAGE_FLAGS[code] ?? ''} ${code.toUpperCase()}`;
+                }}
+                inputProps={{ 'aria-label': t("header.switch_language") }}
+                size="small"
+            >
                 <MenuItem value="en">🇬🇧 English</MenuItem>
                 <MenuItem value="hi">🇮🇳 हिंदी</MenuItem>
                 <MenuItem value="it">🇮🇹 Italiano</MenuItem>

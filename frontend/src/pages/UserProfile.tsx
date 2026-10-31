@@ -16,59 +16,28 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  Skeleton,
   Stack,
   Typography,
   useTheme,
 } from '@mui/material';
 import Grid from '@mui/material/Grid2';
-import MovieOutlinedIcon from '@mui/icons-material/MovieOutlined';
 import WatchLaterIcon from '@mui/icons-material/WatchLater';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import TimerIcon from '@mui/icons-material/Timer';
-import TvIcon from '@mui/icons-material/Tv';
-import LocalMoviesIcon from '@mui/icons-material/LocalMovies';
+import StarIcon from '@mui/icons-material/Star';
 import EditIcon from '@mui/icons-material/Edit';
 import LogoutIcon from '@mui/icons-material/Logout';
-import PersonSearchIcon from '@mui/icons-material/PersonSearch';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 
-import PieChart from '../components/userProfile/ListBreakdownPieChart';
-import BarGraph from '../components/userProfile/GenreBarGraph';
-import BackButton from '../components/common/BackButton';
 import EditProfileForm from '../components/userProfile/EditProfileForm';
-import IMDbVotesChart from '../components/userProfile/IMDbVotesChart';
-import TopLanguagesPieChart from '../components/userProfile/TopLanguagesPieChart';
-import ContentTypeDonutChart from '../components/userProfile/ContentTypeDonutChart';
-import DecadeDistributionChart from '../components/userProfile/DecadeDistributionChart';
-import PeopleWordCloud from '../components/userProfile/PeopleWordCloud';
-
-import { Movie } from '../types';
+import StatTile from '../components/userProfile/StatTile';
+import Highlights from '../components/userProfile/Highlights';
+import ChartCard from '../components/userProfile/charts/ChartCard';
+import RankedBars from '../components/userProfile/charts/RankedBars';
+import ColumnChart from '../components/userProfile/charts/ColumnChart';
+import { computeProfileStats } from '../utils/profileStats';
 import { signOutRedirect } from '../auth/authUtils';
-
-const parseMinutes = (runtime: string) => {
-  return parseInt(runtime?.replace(/\D/g, ''), 10) || 0;
-};
-
-const formatTime = (
-  totalMinutes: number,
-): { days: number; hours: number; minutes: number } => {
-  const days = Math.floor(totalMinutes / (24 * 60));
-  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
-  const minutes = totalMinutes % 60;
-
-  return { days, hours, minutes };
-};
-
-const buildUniqueMovieMap = (movies: Movie[]) => {
-  const uniqueMovies = new Map<string, Movie>();
-
-  movies.forEach((movie) => {
-    uniqueMovies.set(movie.imdbID, movie);
-  });
-
-  return uniqueMovies;
-};
 
 const UserProfile = () => {
   const auth = useAuth();
@@ -80,12 +49,12 @@ const UserProfile = () => {
   const watchLater = useSelector((store: RootState) => store.watch.watchLater);
   const watched = useSelector((store: RootState) => store.watch.watched);
 
-  const numFavourites = Object.keys(favourites).length;
-  const numWatchLater = Object.keys(watchLater).length;
-  const numWatched = Object.keys(watched).length;
-
   const { firstName, lastName, userID, loading } = useSelector(
     (store: RootState) => store.user,
+  );
+  const listsLoading = useSelector(
+    (store: RootState) =>
+      store.favourites.loading || store.watch.loadingWatchLater || store.watch.loadingWatched,
   );
 
   const [openEditProfile, setOpenEditProfile] = useState(false);
@@ -97,260 +66,121 @@ const UserProfile = () => {
     signOutRedirect();
   };
 
-  const watchedMovies = useMemo(() => Object.values(watched), [watched]);
-  const allSavedMovies = useMemo(
-    () => [
-      ...Object.values(favourites),
-      ...Object.values(watched),
-      ...Object.values(watchLater),
-    ],
-    [favourites, watched, watchLater],
+  const stats = useMemo(
+    () =>
+      computeProfileStats({
+        favourites: Object.values(favourites),
+        watchLater: Object.values(watchLater),
+        watched: Object.values(watched),
+      }),
+    [favourites, watchLater, watched],
   );
 
-  const totalMoviesWatched = useMemo(
-    () => watchedMovies.filter((movie) => movie.Type === 'movie').length,
-    [watchedMovies],
-  );
+  const { days, hours, minutes } = stats.watchTime;
+  const watchTimeValue = days > 0 ? `${days}d ${hours}h` : `${hours}h ${minutes}m`;
+  const basedOnSaved = t('profile.based_on_saved', { count: stats.savedCount });
 
-  const totalShowsWatched = useMemo(
-    () => watchedMovies.filter((movie) => movie.Type === 'series').length,
-    [watchedMovies],
-  );
-
-  const { movieTime, tvTime, totalWatchTime } = useMemo(() => {
-    const totalMovieMinutes = watchedMovies
-      .filter((movie) => movie.Type === 'movie')
-      .reduce((sum, movie) => sum + parseMinutes(movie.Runtime), 0);
-
-    const totalTvMinutes = watchedMovies
-      .filter((movie) => movie.Type === 'series')
-      .reduce((sum, movie) => {
-        const seasons = parseInt(movie.totalSeasons, 10) || 1;
-        return sum + parseMinutes(movie.Runtime) * seasons * 10;
-      }, 0);
-
-    return {
-      tvTime: formatTime(totalTvMinutes),
-      movieTime: formatTime(totalMovieMinutes),
-      totalWatchTime: formatTime(totalMovieMinutes + totalTvMinutes),
-    };
-  }, [watchedMovies]);
-
-  const languageCount = useMemo(() => {
-    const count: Record<string, number> = {};
-
-    buildUniqueMovieMap(watchedMovies).forEach(({ Language }) => {
-      Language?.split(', ')
-        .filter(Boolean)
-        .forEach((lang) => {
-          count[lang] = (count[lang] || 0) + 1;
-        });
-    });
-
-    return Object.entries(count).map(([language, count]) => ({ language, count }));
-  }, [watchedMovies]);
-
-  const genreCount = useMemo(() => {
-    const count: Record<string, number> = {};
-
-    buildUniqueMovieMap(allSavedMovies).forEach(({ Genre }) => {
-      Genre?.split(', ')
-        .filter(Boolean)
-        .forEach((genre) => {
-          count[genre] = (count[genre] || 0) + 1;
-        });
-    });
-
-    return count;
-  }, [allSavedMovies]);
-
-  const decadeDistribution = useMemo(() => {
-    const count: Record<string, number> = {};
-
-    buildUniqueMovieMap(watchedMovies).forEach(({ Year }) => {
-      const year = parseInt(Year?.match(/\d{4}/)?.[0] || '', 10);
-      if (!year) return;
-
-      const decade = `${Math.floor(year / 10) * 10}s`;
-      count[decade] = (count[decade] || 0) + 1;
-    });
-
-    return Object.entries(count)
-      .map(([decade, count]) => ({ decade, count }))
-      .sort((a, b) => parseInt(a.decade, 10) - parseInt(b.decade, 10));
-  }, [watchedMovies]);
-
-  const peopleWordCloud = useMemo(() => {
-    const count: Record<string, number> = {};
-
-    buildUniqueMovieMap(watchedMovies).forEach(({ Actors, Director }) => {
-      `${Actors || ''}, ${Director || ''}`
-        .split(',')
-        .map((person) => person.trim())
-        .filter((person) => person && person !== 'N/A')
-        .forEach((person) => {
-          count[person] = (count[person] || 0) + 1;
-        });
-    });
-
-    return Object.entries(count)
-      .map(([text, value]) => ({ text, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 40);
-  }, [watchedMovies]);
-
-  const topIMDbVotesCount = useMemo(() => {
-    return watchedMovies
-      .filter((movie) => movie.imdbVotes && movie.imdbVotes !== 'N/A')
-      .sort(
-        (a, b) =>
-          parseInt(b.imdbVotes.replace(/,/g, ''), 10) -
-          parseInt(a.imdbVotes.replace(/,/g, ''), 10),
-      )
-      .slice(0, 10)
-      .map((movie) => ({
-        title: movie.Title,
-        votes: parseInt(movie.imdbVotes.replace(/,/g, ''), 10),
-      }));
-  }, [watchedMovies]);
-
-  const renderTimeValue = (time: { days: number; hours: number; minutes: number }) => (
-    <Stack direction="row" gap={1.5} justifyContent="center" flexWrap="wrap">
-      {[
-        { value: time.days, label: t('profile.days') },
-        { value: time.hours, label: t('profile.hours') },
-        { value: time.minutes, label: t('profile.minutes') },
-      ].map((item) => (
-        <Box key={item.label} sx={{ minWidth: 68 }}>
-          <Typography variant="h5" fontWeight={800}>
-            {item.value}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" fontWeight={700}>
-            {item.label}
-          </Typography>
-        </Box>
-      ))}
-    </Stack>
-  );
-
-  const statCards = [
-    { icon: <TvIcon />, label: t('profile.tv_time'), value: renderTimeValue(tvTime) },
+  const tiles = [
     {
-      icon: <MovieOutlinedIcon />,
-      label: t('profile.movie_time'),
-      value: renderTimeValue(movieTime),
+      icon: <CheckCircleIcon />,
+      accent: theme.palette.watchedIcon,
+      label: t('profile.watched'),
+      value: stats.watchedCount,
+      note: t('profile.watched_split', { movies: stats.watchedMovies, shows: stats.watchedShows }),
+      onClick: () => navigate('/watched'),
     },
     {
       icon: <TimerIcon />,
-      label: t('profile.total_watch_time'),
-      value: renderTimeValue(totalWatchTime),
+      accent: theme.palette.chart,
+      label: t('profile.watch_time'),
+      value: watchTimeValue,
+      note: t('profile.watch_time_note'),
     },
     {
-      icon: <LocalMoviesIcon />,
-      label: t('profile.content_watched'),
-      value: (
-        <Stack direction="row" gap={3} justifyContent="center">
-          <Box>
-            <Typography variant="h5" fontWeight={800}>
-              {totalShowsWatched}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" fontWeight={700}>
-              {t('profile.shows')}
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="h5" fontWeight={800}>
-              {totalMoviesWatched}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" fontWeight={700}>
-              {t('profile.movies')}
-            </Typography>
-          </Box>
-        </Stack>
-      ),
+      icon: <StarIcon />,
+      accent: theme.palette.chart2,
+      label: t('profile.avg_rating'),
+      value: stats.averageRating ?? '–',
+      note: t('profile.avg_rating_note', { count: stats.ratedWatchedCount }),
     },
-  ];
-
-  const collectionCards = [
     {
-      icon: <FavoriteIcon sx={{ color: theme.palette.favouriteIcon }} />,
+      icon: <FavoriteIcon />,
+      accent: theme.palette.favouriteIcon,
       label: t('profile.favourites'),
-      count: numFavourites,
-      path: '/favourites',
+      value: stats.favouritesCount,
+      note: t('profile.open_list'),
+      onClick: () => navigate('/favourites'),
     },
     {
-      icon: <WatchLaterIcon sx={{ color: theme.palette.watchLaterIcon }} />,
+      icon: <WatchLaterIcon />,
+      accent: theme.palette.watchLaterIcon,
       label: t('profile.watch_later'),
-      count: numWatchLater,
-      path: '/watch-later',
-    },
-    {
-      icon: <CheckCircleIcon sx={{ color: theme.palette.watchedIcon }} />,
-      label: t('profile.watched'),
-      count: numWatched,
-      path: '/watched',
+      value: stats.watchLaterCount,
+      note:
+        stats.watchLaterCount > 0
+          ? t('profile.backlog_note', {
+              time: stats.backlogTime.days > 0
+                ? `${stats.backlogTime.days}d ${stats.backlogTime.hours}h`
+                : `${stats.backlogTime.hours}h ${stats.backlogTime.minutes}m`,
+            })
+          : t('profile.open_list'),
+      onClick: () => navigate('/watch-later'),
     },
   ];
 
-  const chartCardSx = {
-    backgroundColor: theme.palette.background.default,
-    border: `2px solid ${theme.palette.primary.main}`,
-    borderRadius: '12px',
-    boxShadow: '0 4px 10px rgba(0,0,0,0.4)',
-    height: '100%',
-  };
+  const charts = [
+    // Neighbouring cards alternate between the theme's two chart hues.
+    { key: 'genres', title: t('profile.chart_genres'), kind: 'ranked', data: stats.genres, hue: theme.palette.chart },
+    { key: 'decades', title: t('profile.chart_decades'), kind: 'columns', data: stats.decades, hue: theme.palette.chart2 },
+    { key: 'ratings', title: t('profile.chart_ratings'), kind: 'columns', data: stats.ratings, hue: theme.palette.chart },
+    { key: 'languages', title: t('profile.chart_languages'), kind: 'ranked', data: stats.languages, hue: theme.palette.chart2 },
+    { key: 'directors', title: t('profile.chart_directors'), kind: 'ranked', data: stats.directors, hue: theme.palette.chart },
+    { key: 'actors', title: t('profile.chart_actors'), kind: 'ranked', data: stats.actors, hue: theme.palette.chart2 },
+  ] as const;
 
   return (
     <>
-      <BackButton />
-      <Box sx={{ maxWidth: '1600px', margin: 'auto', p: { xs: 2, md: 4 } }}>
-        <Card sx={{ ...chartCardSx, mb: 4 }}>
-          <CardContent>
+      <Box sx={{ pt: { xs: 2, md: 3 } }}>
+        <Card
+          sx={{
+            mb: { xs: 2, md: 3 },
+            backgroundColor: theme.palette.background.default,
+            border: `1px solid ${theme.palette.divider}`,
+            boxShadow: 'none',
+          }}
+        >
+          <CardContent sx={{ p: { xs: 2, md: 2.5 }, '&:last-child': { pb: { xs: 2, md: 2.5 } } }}>
             <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              gap={3}
-              alignItems={{ xs: 'flex-start', md: 'center' }}
+              direction={{ xs: 'column', sm: 'row' }}
+              gap={{ xs: 2, sm: 2.5 }}
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
             >
               <Avatar
                 sx={{
                   fontWeight: 800,
-                  fontSize: { xs: '2rem', md: '3rem' },
+                  fontSize: { xs: '1.25rem', md: '1.5rem' },
                   backgroundColor: theme.palette.primary.main,
-                  border: `2px solid ${theme.palette.secondary.main}`,
-                  width: { xs: 96, md: 128 },
-                  height: { xs: 96, md: 128 },
+                  width: { xs: 56, md: 64 },
+                  height: { xs: 56, md: 64 },
                   color: theme.palette.text.tertiary,
-                  boxShadow: 4,
                 }}
               >
                 {firstName && lastName && `${firstName[0][0]}${lastName[0][0]}`}
               </Avatar>
               <Box sx={{ minWidth: 0 }}>
-                <Typography
-                  variant="h4"
-                  fontWeight={800}
-                  sx={{ fontSize: 'clamp(1.7rem, 4vw, 3rem)' }}
-                >
-                  {loading ? '...' : `${firstName || ''} ${lastName || ''}`.trim()}
+                <Typography variant="h4" component="h1">
+                  {loading ? <Skeleton width={180} /> : `${firstName || ''} ${lastName || ''}`.trim()}
                 </Typography>
-                <Typography
-                  variant="body1"
-                  color="text.secondary"
-                  sx={{ overflowWrap: 'anywhere' }}
-                >
-                  {loading ? '...' : userID}
+                <Typography variant="body2" sx={{ opacity: 0.8, overflowWrap: 'anywhere' }}>
+                  {loading ? <Skeleton width={220} /> : userID}
                 </Typography>
               </Box>
-              <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                gap={2}
-                sx={{ ml: { md: 'auto' }, width: { xs: '100%', sm: 'auto' } }}
-              >
+              <Stack direction="row" gap={1} sx={{ ml: { sm: 'auto' }, flexWrap: 'wrap' }}>
                 <Button
                   onClick={() => setOpenSignOut(true)}
                   variant="outlined"
                   startIcon={<LogoutIcon />}
-                  sx={{ fontWeight: 700 }}
+                  sx={{ color: theme.palette.text.primary }}
                 >
                   {t('profile.sign_out')}
                 </Button>
@@ -358,7 +188,6 @@ const UserProfile = () => {
                   onClick={() => setOpenEditProfile(true)}
                   variant="contained"
                   startIcon={<EditIcon />}
-                  sx={{ fontWeight: 700 }}
                 >
                   {t('profile.edit_profile_details')}
                 </Button>
@@ -367,146 +196,46 @@ const UserProfile = () => {
           </CardContent>
         </Card>
 
-        <Grid container spacing={3} sx={{ mb: 5 }}>
-          {collectionCards.map((collection) => (
-            <Grid key={collection.path} size={{ xs: 12, md: 4 }}>
-              <Card
-                component="button"
-                onClick={() => navigate(collection.path)}
-                sx={{
-                  ...chartCardSx,
-                  width: '100%',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  transition: 'transform 180ms ease',
-                  '&:hover': { transform: 'translateY(-3px)' },
-                }}
-              >
-                <CardContent>
-                  <Stack direction="row" alignItems="center" gap={2}>
-                    <Box sx={{ display: 'flex', fontSize: 34 }}>{collection.icon}</Box>
-                    <Box>
-                      <Typography variant="h6" fontWeight={800}>
-                        {collection.label}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" fontWeight={700}>
-                        {collection.count} saved
-                      </Typography>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
+        <Box
+          component="section"
+          aria-label={t('profile.my_stats')}
+          sx={{
+            display: 'grid',
+            gap: { xs: 1.5, md: 2 },
+            // 2 per row on phones, 3 on tablets, all 5 in one row on laptops.
+            gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(5, minmax(0, 1fr))' },
+            mb: { xs: 3, md: 4 },
+          }}
+        >
+          {tiles.map(({ label, ...tile }) => (
+            <StatTile key={label} label={label} loading={listsLoading} {...tile} />
           ))}
-        </Grid>
+        </Box>
 
-        <Typography variant="h4" sx={{ mb: 3, fontSize: 'clamp(1.4rem, 2vw, 2rem)' }}>
-          {t('profile.my_stats')}
+        <Highlights stats={stats} />
+
+        <Typography variant="h5" component="h2" sx={{ mb: 2 }}>
+          {t('profile.your_taste')}
         </Typography>
-        <Grid container spacing={3} sx={{ mb: 5 }}>
-          {statCards.map((stat) => (
-            <Grid key={stat.label} size={{ xs: 12, sm: 6, lg: 3 }}>
-              <Card sx={chartCardSx}>
-                <CardContent>
-                  <Stack direction="row" gap={1.5} alignItems="center" sx={{ mb: 2 }}>
-                    <Box sx={{ color: theme.palette.primary.main, display: 'flex' }}>
-                      {stat.icon}
-                    </Box>
-                    <Typography variant="subtitle1" fontWeight={800}>
-                      {stat.label}
-                    </Typography>
-                  </Stack>
-                  {stat.value}
-                </CardContent>
-              </Card>
+        <Grid container spacing={{ xs: 1.5, md: 2 }} sx={{ mb: 4 }}>
+          {charts.map((chart) => (
+            <Grid key={chart.key} size={{ xs: 12, md: 6 }}>
+              <ChartCard
+                title={chart.title}
+                subtitle={basedOnSaved}
+                loading={listsLoading}
+                isEmpty={chart.data.length === 0}
+                emptyText={t('profile.chart_empty')}
+                accent={chart.hue}
+              >
+                {chart.kind === 'ranked' ? (
+                  <RankedBars data={[...chart.data]} total={stats.savedCount} caption={chart.title} hue={chart.hue} />
+                ) : (
+                  <ColumnChart data={[...chart.data]} caption={chart.title} hue={chart.hue} />
+                )}
+              </ChartCard>
             </Grid>
           ))}
-        </Grid>
-
-        <Grid container columns={12} spacing={3} sx={{ alignItems: 'stretch' }}>
-          <Grid size={{ xs: 12, lg: 7 }}>
-            <Card sx={chartCardSx}>
-              <CardContent>
-                <Typography variant="h5" fontWeight={800} sx={{ mb: 2 }}>
-                  {t('profile.favourite_genre_text')}
-                </Typography>
-                <BarGraph genreCount={genreCount} />
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, lg: 5 }}>
-            <Card sx={chartCardSx}>
-              <CardContent>
-                <Typography variant="h5" fontWeight={800} sx={{ mb: 2 }}>
-                  Movies vs. TV Shows
-                </Typography>
-                <ContentTypeDonutChart
-                  movieCount={totalMoviesWatched}
-                  seriesCount={totalShowsWatched}
-                />
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, lg: 6 }}>
-            <Card sx={chartCardSx}>
-              <CardContent>
-                <Typography variant="h5" fontWeight={800} sx={{ mb: 2 }}>
-                  Release Decades
-                </Typography>
-                <DecadeDistributionChart data={decadeDistribution} />
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, lg: 6 }}>
-            <Card sx={chartCardSx}>
-              <CardContent>
-                <Stack direction="row" gap={1.5} alignItems="center" sx={{ mb: 2 }}>
-                  <PersonSearchIcon color="primary" />
-                  <Typography variant="h5" fontWeight={800}>
-                    Actors & Directors
-                  </Typography>
-                </Stack>
-                <PeopleWordCloud words={peopleWordCloud} />
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, lg: 6 }}>
-            <Card sx={chartCardSx}>
-              <CardContent>
-                <Typography variant="h5" fontWeight={800} sx={{ mb: 2 }}>
-                  {t('profile.movie_list_breakdown_text')}
-                </Typography>
-                <PieChart
-                  numFavourites={numFavourites}
-                  numWatchLater={numWatchLater}
-                  numWatched={numWatched}
-                />
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={{ xs: 12, lg: 6 }}>
-            <Card sx={chartCardSx}>
-              <CardContent>
-                <Typography variant="h5" fontWeight={800} sx={{ mb: 2 }}>
-                  {t('profile.content_watched_text')}
-                </Typography>
-                <TopLanguagesPieChart languageCount={languageCount} />
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid size={12}>
-            <Card sx={chartCardSx}>
-              <CardContent>
-                <Stack direction="row" gap={1.5} alignItems="center" sx={{ mb: 2 }}>
-                  <CalendarMonthIcon color="primary" />
-                  <Typography variant="h5" fontWeight={800}>
-                    {t('profile.imdb_votes_text')}
-                  </Typography>
-                </Stack>
-                <IMDbVotesChart votesData={topIMDbVotesCount} />
-              </CardContent>
-            </Card>
-          </Grid>
         </Grid>
       </Box>
 

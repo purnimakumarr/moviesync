@@ -1,17 +1,22 @@
-import { Skeleton } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import { Box, Skeleton } from '@mui/material';
+import { movieGridSx } from '../common/movieGridSx';
 
 type CardSkeletonProps = {
     count?: number;
 };
 
+// Same grid and proportions as MovieCard, so loading doesn't shift the layout.
 function CardSkeleton({ count = 5 }: CardSkeletonProps) {
     return (
-        <Grid container spacing={2} size={{ xs: 8 }} sx={{ maxWidth: '1800px', margin: '0 auto', alignItems: 'center', justifyContent: 'center' }}>
+        <Box sx={movieGridSx} aria-busy="true">
             {[...Array(count)].map((_, index) => (
-                <Skeleton sx={{ borderRadius: '12px' }} variant="rounded" height={450} width={300} key={index} />
+                <Box key={index}>
+                    <Skeleton variant="rounded" sx={{ borderRadius: '12px', width: '100%', height: 'auto', aspectRatio: '2 / 3' }} />
+                    <Skeleton variant="text" sx={{ mt: 1, width: '80%' }} />
+                    <Skeleton variant="text" sx={{ width: '30%' }} />
+                </Box>
             ))}
-        </Grid>
+        </Box>
     )
 }
 

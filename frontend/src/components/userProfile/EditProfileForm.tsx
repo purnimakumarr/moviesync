@@ -343,24 +343,18 @@ function EditProfile({ onEditProfileClose }: EditProfileFormProps) {
                             </Tooltip>
                         </Grid>
                     </Grid>
-                    <Stack direction='row' sx={{ justifyContent: 'flex-end' }}>
+                    <Stack direction='row' sx={{ justifyContent: 'flex-end', gap: '0.5rem' }}>
                         <Button sx={{
-                            fontSize: { sm: "0.8rem", lg: '1rem' },
-                            padding: { xs: "6px 12px", sm: "8px 16px", md: "10px 20px", lg: "12px 24px" },
-                            minWidth: { xs: "80px", sm: "100px", md: "120px", lg: "150px" },
                             fontWeight: 600
-                        }} onClick={onEditProfileClose} size='large' color="primary">
+                        }} onClick={onEditProfileClose} color="primary">
                             {t('profile.cancel')}
                         </Button>
-                        <Button disabled={!dirty} type="submit" size='large' variant="contained" sx={{
+                        <Button disabled={!dirty} type="submit" variant="contained" sx={{
                             width: 'fit-content', '&:disabled': {
                                 bgcolor: theme.palette.background.primary,
                                 color: theme.palette.text.primary,
                                 cursor: 'not-allowed',
                                 pointerEvents: 'auto',
-                                fontSize: { sm: "0.8rem", lg: '1rem' },
-                                padding: { xs: "6px 12px", sm: "8px 16px", md: "10px 20px", lg: "12px 24px" },
-                                minWidth: { xs: "80px", sm: "100px", md: "120px", lg: "150px" },
                                 fontWeight: 600
 
                             }
