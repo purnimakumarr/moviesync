@@ -49,7 +49,14 @@
     "feature_trending_title": "Découvrez les tendances",
     "feature_trending_body": "Parcourez ce que les autres utilisateurs de MovieSync enregistrent en ce moment.",
     "feature_stats_title": "Explorez vos statistiques",
-    "feature_stats_body": "Des graphiques sur vos genres, décennies, langues et artistes préférés."
+    "feature_stats_body": "Des graphiques sur vos genres, décennies, langues et artistes préférés.",
+    "now_trending": "Tendance : {{title}}",
+    "shelf_heading": "Votre étagère",
+    "up_next": "À voir ensuite",
+    "spin_teaser_title": "Vous ne savez pas quoi regarder ?",
+    "spin_teaser_body": "Laissez la roue décider, ou choisissez un genre pour commencer.",
+    "spin_teaser_cta": "Faire tourner la roue",
+    "pick_a_genre": "Choisir un genre"
   },
   "search": {
     "search_title": "Rechercher un titre*",

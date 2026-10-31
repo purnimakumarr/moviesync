@@ -49,7 +49,14 @@
     "feature_trending_title": "Scopri le tendenze",
     "feature_trending_body": "Guarda cosa stanno salvando ora gli altri utenti di MovieSync.",
     "feature_stats_title": "Scopri le tue statistiche",
-    "feature_stats_body": "Grafici sui tuoi generi, decenni, lingue e artisti preferiti."
+    "feature_stats_body": "Grafici sui tuoi generi, decenni, lingue e artisti preferiti.",
+    "now_trending": "Di tendenza: {{title}}",
+    "shelf_heading": "Il tuo scaffale",
+    "up_next": "Prossimi da vedere",
+    "spin_teaser_title": "Non sai cosa guardare?",
+    "spin_teaser_body": "Lascia decidere la ruota, oppure scegli un genere da cui partire.",
+    "spin_teaser_cta": "Gira la ruota",
+    "pick_a_genre": "Scegli un genere"
   },
   "search": {
     "search_title": "Cerca titolo*",

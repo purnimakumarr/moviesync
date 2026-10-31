@@ -8,5 +8,5 @@ interface ThemeContextType {
 
 export const ThemeContext = React.createContext<ThemeContextType>({
   changePalette: () => {},
-  selectedPalette: 'horror',
+  selectedPalette: 'theatre',
 });

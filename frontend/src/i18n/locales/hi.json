@@ -49,7 +49,14 @@
     "feature_trending_title": "देखें क्या ट्रेंड में है",
     "feature_trending_body": "देखें कि MovieSync के दूसरे उपयोगकर्ता अभी क्या सेव कर रहे हैं।",
     "feature_stats_title": "अपने आँकड़े देखें",
-    "feature_stats_body": "आपकी पसंदीदा शैलियों, दशकों, भाषाओं और कलाकारों के चार्ट।"
+    "feature_stats_body": "आपकी पसंदीदा शैलियों, दशकों, भाषाओं और कलाकारों के चार्ट।",
+    "now_trending": "अभी ट्रेंडिंग: {{title}}",
+    "shelf_heading": "आपकी शेल्फ़",
+    "up_next": "आगे देखें",
+    "spin_teaser_title": "तय नहीं कर पा रहे कि क्या देखें?",
+    "spin_teaser_body": "व्हील को तय करने दें, या शुरुआत के लिए कोई शैली चुनें।",
+    "spin_teaser_cta": "व्हील घुमाएँ",
+    "pick_a_genre": "शैली चुनें"
   },
   "search": {
     "search_title": "शीर्षक खोजें*",

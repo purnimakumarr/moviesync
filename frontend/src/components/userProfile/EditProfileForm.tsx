@@ -251,7 +251,7 @@ function EditProfile({ onEditProfileClose }: EditProfileFormProps) {
                             </LocalizationProvider>
                         </Grid>
                         <Grid size={{ xs: 12, sm: 8 }}>
-                            <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 2, sm: 1 }, mb: 2 }}>
                                 {/* Country code selector */}
                                 <Autocomplete
                                     options={countries}
@@ -281,7 +281,7 @@ function EditProfile({ onEditProfileClose }: EditProfileFormProps) {
                                             helperText={touched.phoneCountry && errors.phoneCountry}
                                         />
                                     )}
-                                    sx={{ minWidth: '16rem' }}
+                                    sx={{ minWidth: { xs: 0, sm: '16rem' } }}
                                     slotProps={{
                                         listbox: {
                                             style: {
