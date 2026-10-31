@@ -49,7 +49,14 @@
     "feature_trending_title": "トレンドをチェック",
     "feature_trending_body": "MovieSync のユーザーがいま保存している作品をチェック。",
     "feature_stats_title": "あなたの統計",
-    "feature_stats_body": "好きなジャンル、年代、言語、人物をグラフで確認できます。"
+    "feature_stats_body": "好きなジャンル、年代、言語、人物をグラフで確認できます。",
+    "now_trending": "トレンド中：{{title}}",
+    "shelf_heading": "あなたの棚",
+    "up_next": "次に観る",
+    "spin_teaser_title": "何を観るか迷っていますか？",
+    "spin_teaser_body": "ルーレットにおまかせするか、ジャンルを選んで始めましょう。",
+    "spin_teaser_cta": "ルーレットを回す",
+    "pick_a_genre": "ジャンルを選ぶ"
   },
   "search": {
     "search_title": "タイトルを検索*",

@@ -49,7 +49,14 @@
     "feature_trending_title": "See what's trending",
     "feature_trending_body": "Browse what other MovieSync users are saving right now.",
     "feature_stats_title": "Discover your stats",
-    "feature_stats_body": "Charts of your favourite genres, decades, languages and people."
+    "feature_stats_body": "Charts of your favourite genres, decades, languages and people.",
+    "now_trending": "Now trending: {{title}}",
+    "shelf_heading": "Your shelf",
+    "up_next": "Up next",
+    "spin_teaser_title": "Not sure what to watch?",
+    "spin_teaser_body": "Let the wheel decide, or pick a genre to start from.",
+    "spin_teaser_cta": "Spin the wheel",
+    "pick_a_genre": "Pick a genre"
   },
   "search": {
     "search_title": "Search title*",

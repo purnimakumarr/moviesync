@@ -35,6 +35,9 @@ export type PosterSize = 'w185' | 'w342' | 'w500' | 'w780';
 export const posterUrl = (movie: Pick<Movie, 'poster_path'>, size: PosterSize = 'w500') =>
     movie.poster_path ? `${IMAGE_BASE}/${size}${movie.poster_path}` : null;
 
+export const backdropUrl = (movie: Pick<Movie, 'backdrop_path'>, size: 'w780' | 'w1280' = 'w1280') =>
+    movie.backdrop_path ? `${IMAGE_BASE}/${size}${movie.backdrop_path}` : null;
+
 // 0–10 audience score; titles without votes have none.
 export const getRating = (movie: Movie) =>
     movie.vote_count && movie.vote_average ? Math.round(movie.vote_average * 10) / 10 : null;

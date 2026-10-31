@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useReducedMotion } from 'framer-motion';
 
@@ -93,7 +93,11 @@ export default function SpinWheel() {
   );
   const watchedIds = useMemo(() => new Set(Object.keys(watched)), [watched]);
 
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  // The home page's genre shortcuts link here with ?genre=<name>.
+  const [searchParams] = useSearchParams();
+  const [selectedGenres, setSelectedGenres] = useState<string[]>(() =>
+    searchParams.getAll('genre').filter((genre) => WHEEL_GENRES.includes(genre)),
+  );
   const [type, setType] = useState<ContentTypeFilter>('both');
   const [yearRange, setYearRange] = useState<[number, number]>(DEFAULT_YEAR_RANGE);
   const [excludeWatched, setExcludeWatched] = useState(true);
