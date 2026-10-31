@@ -9,68 +9,38 @@ const API_URL =
     ? import.meta.env.VITE_BACKEND_URL_PROD
     : import.meta.env.VITE_BACKEND_URL_DEV;
 
-export const fetchFeatured = createAsyncThunk<
-  FeaturedMovie[],
-  { id: string; tag: string }[]
->('featured/list', async (featuredList, { rejectWithValue }) => {
-  try {
-    if (featuredList.length === 0) {
-      return rejectWithValue('No IMDB IDs provided.');
+// Live TMDB titles, already tagged with their carousel by the backend.
+export const fetchFeatured = createAsyncThunk<FeaturedMovie[], void>(
+  'featured/list',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axiosPublic.get(`${API_URL}/api/featured`);
+
+      if (!response.data.success || response.data.movies.length === 0) {
+        return rejectWithValue('Cannot fetch featured movies at this moment.');
+      }
+
+      return response.data.movies;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        return rejectWithValue(
+          error.response?.data || error.message || 'Network Error',
+        );
+      }
+      return rejectWithValue('An unknown error occurred');
     }
-
-    const [trendingResponse, responses] = await Promise.all([
-      axiosPublic.get(`${API_URL}/api/trending`).catch(() => null),
-      featuredList.map(async ({ id }) => {
-        const res = await axiosPublic.post(`${API_URL}/api/getById`, {
-          imdbID: id,
-        });
-        if (res.data.success) {
-          return {
-            ...res.data.movie,
-            tag: featuredList.find((item) => item.id === id)?.tag,
-          };
-        }
-      }),
-    ]);
-
-    const curatedMovies = await Promise.all(responses);
-
-    const trendingMovies = trendingResponse?.data?.success
-      ? trendingResponse.data.movies
-      : [];
-    const curatedResponses = curatedMovies.filter(Boolean) as FeaturedMovie[];
-    const curatedWithoutTrending = curatedResponses.filter(
-      (movie) => movie.tag !== 'Trending',
-    );
-    const trending =
-      trendingMovies.length > 0
-        ? trendingMovies
-        : curatedResponses.filter((movie) => movie.tag === 'Trending');
-    const validResponses = [...trending, ...curatedWithoutTrending];
-
-    if (validResponses.length === 0) {
-      return rejectWithValue('Cannot fetch featured movies at this moment.');
-    }
-
-    return validResponses;
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      return rejectWithValue(
-        error.response?.data || error.message || 'Network Error',
-      );
-    }
-    return rejectWithValue('An unknown error occurred');
-  }
-});
+  },
+);
 
 interface featuredState {
   movies: FeaturedMovie[];
   loading: boolean;
 }
 
+// Fetched as soon as the app mounts, so start in the loading state.
 const initialState: featuredState = {
   movies: [],
-  loading: false,
+  loading: true,
 };
 
 const featuredSlice = createSlice({

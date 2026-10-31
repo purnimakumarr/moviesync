@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Movie, UserMovieArgs } from '../../types';
 import { axiosPrivate } from '../../api/axiosConfig';
+import { movieKey } from '../../utils/tmdb';
 
 const API_URL =
   import.meta.env.MODE === 'production'
@@ -25,13 +26,13 @@ const initialState: WatchState = {
   errorWatched: null,
 };
 
-export const fetchWatchLater = createAsyncThunk<Movie[], string | null>(
+export const fetchWatchLater = createAsyncThunk<Movie[], void>(
   'watchList/getWatchLater',
-  async (userID, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
       const response = await axiosPrivate.post(
         `${API_URL}/api/watch-later/list`,
-        { userID },
+        {},
       );
 
       return response.data.movies;
@@ -42,13 +43,11 @@ export const fetchWatchLater = createAsyncThunk<Movie[], string | null>(
   },
 );
 
-export const fetchWatched = createAsyncThunk<Movie[], string | null>(
+export const fetchWatched = createAsyncThunk<Movie[], void>(
   'watchList/getWatched',
-  async (userID, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosPrivate.post(`${API_URL}/api/watched/list`, {
-        userID,
-      });
+      const response = await axiosPrivate.post(`${API_URL}/api/watched/list`, {});
 
       return response.data.movies;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -60,11 +59,11 @@ export const fetchWatched = createAsyncThunk<Movie[], string | null>(
 
 export const addWatchLater = createAsyncThunk<Movie, UserMovieArgs>(
   'watchList/addWatchLater',
-  async ({ userID, imdbID }, { rejectWithValue }) => {
+  async ({ id, media_type }, { rejectWithValue }) => {
     try {
       const response = await axiosPrivate.post(
         `${API_URL}/api/watch-later/add`,
-        { userID, imdbID },
+        { id, media_type },
       );
 
       return response.data.movie;
@@ -77,11 +76,11 @@ export const addWatchLater = createAsyncThunk<Movie, UserMovieArgs>(
 
 export const addWatched = createAsyncThunk<Movie, UserMovieArgs>(
   'watchList/addWatched',
-  async ({ userID, imdbID }, { rejectWithValue }) => {
+  async ({ id, media_type }, { rejectWithValue }) => {
     try {
       const response = await axiosPrivate.post(`${API_URL}/api/watched/add`, {
-        userID,
-        imdbID,
+        id,
+        media_type,
       });
 
       return response.data.movie;
@@ -94,14 +93,14 @@ export const addWatched = createAsyncThunk<Movie, UserMovieArgs>(
 
 export const deleteWatchLater = createAsyncThunk<string, UserMovieArgs>(
   'watchList/deleteWatchLater',
-  async ({ userID, imdbID }, { rejectWithValue }) => {
+  async ({ id, media_type }, { rejectWithValue }) => {
     try {
       await axiosPrivate.post(`${API_URL}/api/watch/delete`, {
-        userID,
-        imdbID,
+        id,
+        media_type,
       });
 
-      return imdbID;
+      return movieKey({ id, media_type });
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('watch_later.error_deleting_watch_later');
@@ -111,14 +110,14 @@ export const deleteWatchLater = createAsyncThunk<string, UserMovieArgs>(
 
 export const deleteWatched = createAsyncThunk<string, UserMovieArgs>(
   'watchList/deleteWatched',
-  async ({ userID, imdbID }, { rejectWithValue }) => {
+  async ({ id, media_type }, { rejectWithValue }) => {
     try {
       await axiosPrivate.post(`${API_URL}/api/watch/delete`, {
-        userID,
-        imdbID,
+        id,
+        media_type,
       });
 
-      return imdbID;
+      return movieKey({ id, media_type });
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('watched.error_deleting_watched');
@@ -126,11 +125,11 @@ export const deleteWatched = createAsyncThunk<string, UserMovieArgs>(
   },
 );
 
-export const clearWatchLater = createAsyncThunk<void, string | null>(
+export const clearWatchLater = createAsyncThunk<void, void>(
   'watchList/clearWatchLater',
-  async (userID, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      await axiosPrivate.post(`${API_URL}/api/watch-later/clear`, { userID });
+      await axiosPrivate.post(`${API_URL}/api/watch-later/clear`, {});
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
@@ -139,11 +138,11 @@ export const clearWatchLater = createAsyncThunk<void, string | null>(
   },
 );
 
-export const clearWatched = createAsyncThunk<void, string | null>(
+export const clearWatched = createAsyncThunk<void, void>(
   'watchList/clearWatched',
-  async (userID, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      await axiosPrivate.post(`${API_URL}/api/watched/clear`, { userID });
+      await axiosPrivate.post(`${API_URL}/api/watched/clear`, {});
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('watched.error_clearing_watched');
@@ -178,7 +177,7 @@ const watchSlice = createSlice({
             return;
           }
           action.payload.forEach((movie) => {
-            state.watchLater[movie.imdbID] = movie;
+            state.watchLater[movieKey(movie)] = movie;
           });
         },
       )
@@ -191,10 +190,9 @@ const watchSlice = createSlice({
         state.errorWatchLater = null;
       })
       .addCase(addWatchLater.fulfilled, (state, action) => {
-        if (state.watched[action.payload.imdbID]) {
-          delete state.watched[action.payload.imdbID];
-        }
-        state.watchLater[action.payload.imdbID] = action.payload;
+        const key = movieKey(action.payload);
+        delete state.watched[key];
+        state.watchLater[key] = action.payload;
       })
       .addCase(addWatchLater.rejected, (state, action) => {
         state.errorWatchLater = action.payload as string;
@@ -235,11 +233,11 @@ const watchSlice = createSlice({
         (state, action: PayloadAction<Movie[]>) => {
           state.loadingWatched = false;
           if (!action.payload) {
-            state.watchLater = {};
+            state.watched = {};
             return;
           }
           action.payload.forEach((movie) => {
-            state.watched[movie.imdbID] = movie;
+            state.watched[movieKey(movie)] = movie;
           });
         },
       )
@@ -265,10 +263,9 @@ const watchSlice = createSlice({
         state.errorWatched = null;
       })
       .addCase(addWatched.fulfilled, (state, action) => {
-        if (state.watchLater[action.payload.imdbID]) {
-          delete state.watchLater[action.payload.imdbID];
-        }
-        state.watched[action.payload.imdbID] = action.payload;
+        const key = movieKey(action.payload);
+        delete state.watchLater[key];
+        state.watched[key] = action.payload;
       })
       .addCase(addWatched.rejected, (state, action) => {
         state.errorWatched = action.payload as string;

@@ -9,11 +9,14 @@ const API_URL =
     ? import.meta.env.VITE_BACKEND_URL_PROD
     : import.meta.env.VITE_BACKEND_URL_DEV;
 
+// Results per page unless the caller asks for more (the API allows up to 20).
+export const DEFAULT_PAGE_SIZE = 10;
+
 export const fetchMovies = createAsyncThunk<
   { movies: Movie[]; totalPages: number },
-  void,
+  number | void,
   { state: RootState }
->('movies/search', async (_, { getState, rejectWithValue }) => {
+>('movies/search', async (pageSize, { getState, rejectWithValue }) => {
   let title = getState().movies.title;
   title = title.trim();
 
@@ -29,13 +32,11 @@ export const fetchMovies = createAsyncThunk<
       year,
       type,
       page,
+      pageSize: pageSize || DEFAULT_PAGE_SIZE,
     });
 
     if (!response.data.success) {
-      if (response.data.error === 'Too many results.')
-        return rejectWithValue('search.error_too_many_results');
-
-      if (response.data.error === 'Movie not found.')
+      if (response.data.error === 'Movie not found!')
         return rejectWithValue('search.movie_not_found');
 
       return rejectWithValue(response.data.error);

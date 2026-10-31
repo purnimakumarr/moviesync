@@ -2,6 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import { Movie, UserMovieArgs } from '../../types';
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import { axiosPrivate } from '../../api/axiosConfig';
+import { movieKey } from '../../utils/tmdb';
 
 const API_URL =
   import.meta.env.MODE === 'production'
@@ -20,13 +21,13 @@ const initialState: FavouritesState = {
   error: null,
 };
 
-export const fetchFavourites = createAsyncThunk<Movie[], string | null>(
+export const fetchFavourites = createAsyncThunk<Movie[], void>(
   'favourites/list',
-  async (userID, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
       const response = await axiosPrivate.post(
         `${API_URL}/api/favourite/list`,
-        { userID },
+        {},
       );
 
       return response.data.movies;
@@ -39,11 +40,11 @@ export const fetchFavourites = createAsyncThunk<Movie[], string | null>(
 
 export const addFavourite = createAsyncThunk<Movie, UserMovieArgs>(
   'favourites/add',
-  async ({ userID, imdbID }, { rejectWithValue }) => {
+  async ({ id, media_type }, { rejectWithValue }) => {
     try {
       const response = await axiosPrivate.post(`${API_URL}/api/favourite/add`, {
-        userID,
-        imdbID,
+        id,
+        media_type,
       });
 
       return response.data.movie;
@@ -56,14 +57,14 @@ export const addFavourite = createAsyncThunk<Movie, UserMovieArgs>(
 
 export const deleteFavourite = createAsyncThunk<string, UserMovieArgs>(
   'favourites/delete',
-  async ({ userID, imdbID }, { rejectWithValue }) => {
+  async ({ id, media_type }, { rejectWithValue }) => {
     try {
       await axiosPrivate.post(`${API_URL}/api/favourite/delete`, {
-        userID,
-        imdbID,
+        id,
+        media_type,
       });
 
-      return imdbID;
+      return movieKey({ id, media_type });
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('favourites.error_deleting_favourite');
@@ -71,11 +72,11 @@ export const deleteFavourite = createAsyncThunk<string, UserMovieArgs>(
   },
 );
 
-export const clearFavourites = createAsyncThunk<void, string | null>(
+export const clearFavourites = createAsyncThunk<void, void>(
   'favourites/clear',
-  async (userID, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      await axiosPrivate.post(`${API_URL}/api/favourite/clear`, { userID });
+      await axiosPrivate.post(`${API_URL}/api/favourite/clear`, {});
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error: unknown) {
       return rejectWithValue('favourites.error_clearing_favourites');
@@ -105,7 +106,7 @@ const favouritesSlice = createSlice({
           return;
         }
         action.payload.forEach((movie) => {
-          state.details[movie.imdbID] = movie;
+          state.details[movieKey(movie)] = movie;
         });
       })
       .addCase(fetchFavourites.rejected, (state, action) => {
@@ -116,7 +117,7 @@ const favouritesSlice = createSlice({
         state.error = null;
       })
       .addCase(addFavourite.fulfilled, (state, action) => {
-        state.details[action.payload.imdbID] = action.payload;
+        state.details[movieKey(action.payload)] = action.payload;
       })
       .addCase(addFavourite.rejected, (state, action) => {
         state.error = action.payload as string;
