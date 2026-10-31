@@ -48,7 +48,7 @@ declare module "@mui/material/styles" {
     }
 }
 
-const DEFAULT_PALETTE: PaletteKey = 'horror';
+const DEFAULT_PALETTE: PaletteKey = 'theatre';
 
 const storedPalette = (): PaletteKey => {
     try {
