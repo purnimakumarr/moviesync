@@ -50,7 +50,7 @@ export const initializeUser = createAsyncThunk<UserArgsType, string>(
 
       const response = await axiosPrivate.post(
         `${API_URL}/api/user/create-user`,
-        { userID },
+        {},
       );
 
       return {
@@ -97,7 +97,6 @@ export const updateUser = createAsyncThunk<UserArgsType, UserArgsType>(
 
       const filteredData = Object.fromEntries(
         Object.entries({
-          userID,
           firstName,
           middleName,
           lastName,
@@ -125,13 +124,11 @@ export const updateUser = createAsyncThunk<UserArgsType, UserArgsType>(
   },
 );
 
-export const fetchUser = createAsyncThunk<UserArgsType, string>(
+export const fetchUser = createAsyncThunk<UserArgsType, void>(
   'user/fetch',
-  async (userID, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const response = await axiosPrivate.post(`${API_URL}/api/user/get-user`, {
-        userID,
-      });
+      const response = await axiosPrivate.post(`${API_URL}/api/user/get-user`, {});
 
       return response.data.user as UserArgsType;
     } catch (error: unknown) {

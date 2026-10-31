@@ -3,18 +3,26 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
     "build": "npx tsc",
     "preserve": "npm run build",
     "serve": "concurrently \"npx tsc -w\" \"nodemon dist/index.js\"",
     "prod": "nodemon dist/index.js",
     "start": "node dist/index.js",
-    "azuredeploywin": "npm install && npm run build && npm run start"
+    "azuredeploywin": "npm install && npm run build && npm run start",
+    "migrate": "node-pg-migrate up -m migrations",
+    "migrate:create": "node-pg-migrate create -j sql -m migrations",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "test:coverage": "vitest run --coverage",
+    "backfill:embeddings": "npm run build && node dist/scripts/backfillEmbeddings.js",
+    "migrate:tmdb-ids": "npm run build && node dist/scripts/migrateToTmdb.js"
   },
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@huggingface/transformers": "^4.3.1",
     "@tsconfig/node-lts": "^22.0.1",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
@@ -29,6 +37,7 @@
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^3.2.0",
     "node-forge": "^1.3.1",
+    "node-pg-migrate": "^9.0.0",
     "nodemon": "^3.1.9",
     "pg": "^8.13.3",
     "swagger-jsdoc": "^6.2.8",
@@ -36,8 +45,13 @@
     "typescript": "^5.8.2"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node-forge": "^1.3.11",
+    "@types/supertest": "^7.2.1",
     "@types/swagger-jsdoc": "^6.0.4",
-    "@types/swagger-ui-express": "^4.1.8"
+    "@types/swagger-ui-express": "^4.1.8",
+    "@vitest/coverage-v8": "^3.2.7",
+    "supertest": "^7.3.1",
+    "vitest": "^3.2.7"
   }
 }

@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from './redux/store';
 
+import { MotionConfig } from 'framer-motion';
 import AppRoutes from './routes/AppRoutes';
 import { Box, CircularProgress, Typography } from '@mui/material';
 
@@ -13,7 +14,6 @@ import { fetchFeatured } from "./redux/features/featuredSlice";
 
 import { useAuthUser, useIsAuthenticated } from './auth/authHooks';
 import { useTranslation } from 'react-i18next';
-import { featured } from './utils/featuredMovies';
 
 import './App.css';
 
@@ -36,14 +36,14 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!isAuthenticated || !email) return;
 
-    dispatch(fetchFavourites(email));
-    dispatch(fetchWatchLater(email));
-    dispatch(fetchWatched(email));
+    dispatch(fetchFavourites());
+    dispatch(fetchWatchLater());
+    dispatch(fetchWatched());
   }, [dispatch, isAuthenticated, email]);
 
   // Fetch featured movies
   useEffect(() => {
-    dispatch(fetchFeatured(featured));
+    dispatch(fetchFeatured());
   }, [dispatch]);
 
   if (auth.isLoading) {
@@ -52,7 +52,7 @@ const App: React.FC = () => {
       flexDirection="column"
       alignItems="center"
       justifyContent="center"
-      height="100vh"
+      minHeight="100dvh"
     >
       <CircularProgress color="primary" />
       <Typography variant="h6" mt={2}>
@@ -67,7 +67,7 @@ const App: React.FC = () => {
       flexDirection="column"
       alignItems="center"
       justifyContent="center"
-      height="100vh"
+      minHeight="100dvh"
     >
       <Typography variant="h6" color="error" textAlign="center">
         {`${t("app.error_text")}: ${auth.error.message}`}
@@ -76,7 +76,8 @@ const App: React.FC = () => {
 
   }
 
-  return <AppRoutes />
+  // Respect the OS "reduce motion" setting in every framer-motion animation.
+  return <MotionConfig reducedMotion="user"><AppRoutes /></MotionConfig>
 };
 
 export default App;

@@ -29,6 +29,8 @@ axiosPrivate.interceptors.request.use(
       newConfig.headers = AxiosHeaders.from({
         ...newConfig.headers,
         Authorization: `Bearer ${user.access_token}`,
+        // Signed by the identity provider; lets the API trust the user's email.
+        ...(user.id_token ? { 'x-id-token': user.id_token } : {}),
       });
     }
 

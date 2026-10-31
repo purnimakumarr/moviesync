@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useAuth } from "react-oidc-context";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from '../../redux/store';
 import { useTranslation } from 'react-i18next';
@@ -12,30 +11,40 @@ import FavoriteIcon from "@mui/icons-material/Favorite";
 import { addWatched, addWatchLater, deleteWatched, deleteWatchLater } from '../../redux/features/watchSlice';
 import { addFavourite, deleteFavourite } from '../../redux/features/favouritesSlice';
 
-import { MovieProps } from "../../types";
+import { Movie } from "../../types";
+import { movieKey } from "../../utils/tmdb";
 
-const MovieActionsBtn = ({ movie }: MovieProps) => {
+type MovieActionsBtnProps = {
+    movie: Movie;
+    // "small" fits the buttons inside movie cards.
+    size?: "small" | "medium";
+};
+
+const MovieActionsBtn = ({ movie, size = "medium" }: MovieActionsBtnProps) => {
     const theme = useTheme();
+    const inactiveColor = theme.palette.listIconColor ?? theme.palette.iconsColor;
     const { t } = useTranslation();
     const dispatch = useDispatch<AppDispatch>();
-    const auth = useAuth();
-    const userID = auth.user?.profile.email || null;
 
-    const isFavourite = useSelector((state: RootState) => state.favourites.details[movie.imdbID] ? true : false);
-    const isWatchLater = useSelector((state: RootState) => state.watch.watchLater[movie.imdbID] ? true : false);
-    const isWatched = useSelector((state: RootState) => state.watch.watched[movie.imdbID] ? true : false);
+    const key = movieKey(movie);
+    const ref = { id: movie.id, media_type: movie.media_type };
+    const isFavourite = useSelector((state: RootState) => state.favourites.details[key] ? true : false);
+    const isWatchLater = useSelector((state: RootState) => state.watch.watchLater[key] ? true : false);
+    const isWatched = useSelector((state: RootState) => state.watch.watched[key] ? true : false);
 
     const [loadingFavourite, setLoadingFavourite] = useState(false);
     const [loadingWatchLater, setLoadingWatchLater] = useState(false);
     const [loadingWatched, setLoadingWatched] = useState(false);
 
+    // Failures are stored in the slice's error state and shown by the pages,
+    // so the handlers only wait for completion and never rethrow.
     const handleToggleFavourite = async function () {
         setLoadingFavourite(true);
         try {
             if (isFavourite) {
-                await dispatch(deleteFavourite({ userID, imdbID: movie.imdbID })).unwrap();
+                await dispatch(deleteFavourite(ref));
             } else {
-                await dispatch(addFavourite({ userID, imdbID: movie.imdbID })).unwrap();
+                await dispatch(addFavourite(ref));
             }
         } finally {
             setLoadingFavourite(false);
@@ -46,9 +55,9 @@ const MovieActionsBtn = ({ movie }: MovieProps) => {
         setLoadingWatchLater(true);
         try {
             if (isWatchLater) {
-                await dispatch(deleteWatchLater({ userID, imdbID: movie.imdbID })).unwrap();
+                await dispatch(deleteWatchLater(ref));
             } else {
-                await dispatch(addWatchLater({ userID, imdbID: movie.imdbID })).unwrap();
+                await dispatch(addWatchLater(ref));
             }
         } finally {
             setLoadingWatchLater(false);
@@ -59,9 +68,9 @@ const MovieActionsBtn = ({ movie }: MovieProps) => {
         setLoadingWatched(true);
         try {
             if (isWatched) {
-                await dispatch(deleteWatched({ userID, imdbID: movie.imdbID })).unwrap();
+                await dispatch(deleteWatched(ref));
             } else {
-                await dispatch(addWatched({ userID, imdbID: movie.imdbID })).unwrap();
+                await dispatch(addWatched(ref));
             }
         } finally {
             setLoadingWatched(false);
@@ -71,7 +80,7 @@ const MovieActionsBtn = ({ movie }: MovieProps) => {
     return <>
         <Tooltip title={isFavourite ? t('movie_actions_btn.remove_from_favourites') : t('movie_actions_btn.add_to_favourites')}>
             <Box component='span'>
-                <IconButton disabled={loadingFavourite} onClick={handleToggleFavourite} sx={{
+                <IconButton size={size} aria-label={isFavourite ? t('movie_actions_btn.remove_from_favourites') : t('movie_actions_btn.add_to_favourites')} aria-pressed={isFavourite} disabled={loadingFavourite} onClick={handleToggleFavourite} sx={{
                     "&:hover": { backgroundColor: theme.palette.iconsBackgroundHover },
                     background: loadingFavourite
                         ? `linear-gradient(90deg, 
@@ -85,7 +94,7 @@ const MovieActionsBtn = ({ movie }: MovieProps) => {
                         "0%": { backgroundPosition: "-200% 0" },
                         "100%": { backgroundPosition: "200% 0" },
                     },
-                    color: isFavourite ? theme.palette.favouriteIcon : theme.palette.iconsColor,
+                    color: isFavourite ? theme.palette.favouriteIcon : inactiveColor,
                 }}>
                     <FavoriteIcon />
                 </IconButton>
@@ -93,7 +102,7 @@ const MovieActionsBtn = ({ movie }: MovieProps) => {
         </Tooltip>
         <Tooltip title={isWatchLater ? t('movie_actions_btn.remove_from_watch_later') : t('movie_actions_btn.add_to_watch_later')}>
             <Box component='span'>
-                <IconButton disabled={loadingWatchLater} sx={{
+                <IconButton size={size} aria-label={isWatchLater ? t('movie_actions_btn.remove_from_watch_later') : t('movie_actions_btn.add_to_watch_later')} aria-pressed={isWatchLater} disabled={loadingWatchLater} sx={{
                     "&:hover": {
                         backgroundColor: theme.palette.iconsBackgroundHover
                     },
@@ -104,7 +113,7 @@ const MovieActionsBtn = ({ movie }: MovieProps) => {
                         ${theme.palette.secondary.main} 75%)`
                         : theme.palette.iconsBackground,
                     backgroundSize: "200% 100%",
-                    color: isWatchLater ? theme.palette.watchLaterIcon : theme.palette.iconsColor,
+                    color: isWatchLater ? theme.palette.watchLaterIcon : inactiveColor,
                     animation: loadingWatchLater ? "shimmer 1.5s ease-in-out infinite" : "none",
                     "@keyframes shimmer": {
                         "0%": { backgroundPosition: "-200% 0" },
@@ -117,7 +126,7 @@ const MovieActionsBtn = ({ movie }: MovieProps) => {
         </Tooltip >
         <Tooltip title={isWatched ? t('movie_actions_btn.remove_from_watched') : t('movie_actions_btn.add_to_watched')}>
             <Box component='span'>
-                <IconButton disabled={loadingWatched} sx={{
+                <IconButton size={size} aria-label={isWatched ? t('movie_actions_btn.remove_from_watched') : t('movie_actions_btn.add_to_watched')} aria-pressed={isWatched} disabled={loadingWatched} sx={{
                     "&:hover": {
                         backgroundColor: theme.palette.iconsBackgroundHover
                     },
@@ -128,7 +137,7 @@ const MovieActionsBtn = ({ movie }: MovieProps) => {
                         ${theme.palette.secondary.main} 75%)`
                         : theme.palette.iconsBackground,
                     backgroundSize: "200% 100%",
-                    color: isWatched ? theme.palette.watchedIcon : theme.palette.iconsColor,
+                    color: isWatched ? theme.palette.watchedIcon : inactiveColor,
                     animation: loadingWatched ? "shimmer 1.5s ease-in-out infinite" : "none",
                     "@keyframes shimmer": {
                         "0%": { backgroundPosition: "-200% 0" },

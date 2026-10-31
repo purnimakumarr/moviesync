@@ -52,10 +52,15 @@ const MovieAppBackground: React.FC = () => {
             top: 0,
             left: 0,
             width: '100%',
-            height: '100vh',
+            height: '100dvh',
             background: `linear-gradient(180deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.6))`,
             zIndex: - 1,
-            overflow: 'hidden'
+            overflow: 'hidden',
+            // Decorative only: stop twinkling and moving lights for users who
+            // asked their OS to reduce motion.
+            '@media (prefers-reduced-motion: reduce)': {
+                '& *': { animation: 'none !important' },
+            },
         }}>
             {/* Background gradient */}
             < Box sx={{
@@ -101,7 +106,7 @@ const MovieAppBackground: React.FC = () => {
                 width: '200px',
                 height: '50px',
                 background: `radial-gradient(ellipse at center, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 70%)`,
-                bordeRadius: '50%',
+                borderRadius: '50%',
                 left: 0,
                 animation: `${move} 15s ease-in-out infinite alternate`,
                 transformOrigin: 'center',
@@ -112,7 +117,7 @@ const MovieAppBackground: React.FC = () => {
                 width: '200px',
                 height: '50px',
                 background: `radial-gradient(ellipse at center, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 70%)`,
-                bordeRadius: '50%',
+                borderRadius: '50%',
                 left: 0,
                 animation: `${move} 15s ease-in-out infinite alternate`,
                 transformOrigin: 'center',
@@ -124,7 +129,7 @@ const MovieAppBackground: React.FC = () => {
                 width: '200px',
                 height: '50px',
                 background: `radial-gradient(ellipse at center, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 70%)`,
-                bordeRadius: '50%',
+                borderRadius: '50%',
                 right: 0,
                 animation: `${move} 15s ease-in-out infinite alternate`,
                 transformOrigin: 'center',
@@ -135,7 +140,7 @@ const MovieAppBackground: React.FC = () => {
                 width: '200px',
                 height: '50px',
                 background: `radial-gradient(ellipse at center, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 70%)`,
-                bordeRadius: '50%',
+                borderRadius: '50%',
                 right: 0,
                 animation: `${move} 15s ease-in-out infinite alternate`,
                 transformOrigin: 'center',

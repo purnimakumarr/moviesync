@@ -16,6 +16,8 @@ const router = express.Router();
 const authLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 10,
+  // Integration tests send many requests from one IP.
+  skip: () => process.env.NODE_ENV === 'test',
   message: 'rate_limiter.error_too_many_requests_movie_actions',
 });
 

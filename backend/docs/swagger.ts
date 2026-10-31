@@ -16,6 +16,7 @@
  *                 example: "Inception"
  *               type:
  *                 type: string
+ *                 enum: [movie, tv, None]
  *                 example: "movie"
  *               year:
  *                 type: string
@@ -23,9 +24,13 @@
  *               page:
  *                 type: integer
  *                 example: 1
+ *               pageSize:
+ *                 type: integer
+ *                 maximum: 20
+ *                 example: 10
  *     responses:
  *       200:
- *         description: A list of matching movies
+ *         description: TMDB search results, each with a media_type
  *       400:
  *         description: Invalid request parameters
  *       500:
@@ -36,7 +41,7 @@
  * @swagger
  * /api/getById:
  *   post:
- *     summary: Get movie details by IMDb ID
+ *     summary: Get TMDB details for a movie or TV show
  *     tags: [Movies]
  *     requestBody:
  *       required: true
@@ -45,14 +50,35 @@
  *           schema:
  *             type: object
  *             properties:
- *               imdbID:
+ *               id:
+ *                 type: integer
+ *                 description: TMDB id
+ *                 example: 27205
+ *               media_type:
  *                 type: string
- *                 example: "tt1375666"
+ *                 enum: [movie, tv]
+ *                 example: "movie"
  *     responses:
  *       200:
- *         description: Movie details retrieved successfully
+ *         description: The TMDB details response, with credits, ratings and external IDs
  *       400:
- *         description: IMDb ID is required
+ *         description: TMDB id and media type are required, or the title was not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /api/featured:
+ *   get:
+ *     summary: Live titles for the Featured page carousels
+ *     description: TMDB trending and discover results, 10 per carousel, tagged Trending, Romcoms, Horror Sensations, Hidden Gems or Sci-Fi & Fantasy Hits. Cached for 6 hours.
+ *     tags: [Movies]
+ *     responses:
+ *       200:
+ *         description: Tagged TMDB list results
+ *       502:
+ *         description: TMDB could not be reached
  *       500:
  *         description: Internal Server Error
  */
@@ -70,12 +96,14 @@
  *           schema:
  *             type: object
  *             properties:
- *               userID:
+ *               id:
+ *                 type: integer
+ *                 description: TMDB id
+ *                 example: 27205
+ *               media_type:
  *                 type: string
- *                 example: "user@example.com"
- *               imdbID:
- *                 type: string
- *                 example: "tt1375666"
+ *                 enum: [movie, tv]
+ *                 example: "movie"
  *     responses:
  *       200:
  *         description: Favourite added successfully
@@ -97,10 +125,7 @@
  *         application/json:
  *           schema:
  *             type: object
- *             properties:
- *               userID:
- *                 type: string
- *                 example: "user@example.com"
+ *             properties: {}
  *     responses:
  *       200:
  *         description: List of favourite movies
@@ -123,12 +148,14 @@
  *           schema:
  *             type: object
  *             properties:
- *               userID:
+ *               id:
+ *                 type: integer
+ *                 description: TMDB id
+ *                 example: 27205
+ *               media_type:
  *                 type: string
- *                 example: "user@example.com"
- *               imdbID:
- *                 type: string
- *                 example: "tt1375666"
+ *                 enum: [movie, tv]
+ *                 example: "movie"
  *     responses:
  *       200:
  *         description: Favourite removed successfully
@@ -150,10 +177,7 @@
  *         application/json:
  *           schema:
  *             type: object
- *             properties:
- *               userID:
- *                 type: string
- *                 example: "user@example.com"
+ *             properties: {}
  *     responses:
  *       200:
  *         description: All favourites cleared
@@ -176,12 +200,14 @@
  *           schema:
  *             type: object
  *             properties:
- *               userID:
+ *               id:
+ *                 type: integer
+ *                 description: TMDB id
+ *                 example: 27205
+ *               media_type:
  *                 type: string
- *                 example: "user@example.com"
- *               imdbID:
- *                 type: string
- *                 example: "tt1375666"
+ *                 enum: [movie, tv]
+ *                 example: "movie"
  *     responses:
  *       200:
  *         description: Movie added to Watch Later
@@ -203,10 +229,7 @@
  *         application/json:
  *           schema:
  *             type: object
- *             properties:
- *               userID:
- *                 type: string
- *                 example: "user@example.com"
+ *             properties: {}
  *     responses:
  *       200:
  *         description: List of watch later movies
@@ -228,10 +251,7 @@
  *         application/json:
  *           schema:
  *             type: object
- *             properties:
- *               userID:
- *                 type: string
- *                 example: "user@example.com"
+ *             properties: {}
  *     responses:
  *       200:
  *         description: All watch later cleared
@@ -254,12 +274,14 @@
  *           schema:
  *             type: object
  *             properties:
- *               userID:
+ *               id:
+ *                 type: integer
+ *                 description: TMDB id
+ *                 example: 27205
+ *               media_type:
  *                 type: string
- *                 example: "user@example.com"
- *               imdbID:
- *                 type: string
- *                 example: "tt1375666"
+ *                 enum: [movie, tv]
+ *                 example: "movie"
  *     responses:
  *       200:
  *         description: Movie marked as watched
@@ -281,10 +303,7 @@
  *         application/json:
  *           schema:
  *             type: object
- *             properties:
- *               userID:
- *                 type: string
- *                 example: "user@example.com"
+ *             properties: {}
  *     responses:
  *       200:
  *         description: List of watched movies
@@ -306,10 +325,7 @@
  *         application/json:
  *           schema:
  *             type: object
- *             properties:
- *               userID:
- *                 type: string
- *                 example: "user@example.com"
+ *             properties: {}
  *     responses:
  *       200:
  *         description: All watched cleared
@@ -332,12 +348,14 @@
  *           schema:
  *             type: object
  *             properties:
- *               userID:
+ *               id:
+ *                 type: integer
+ *                 description: TMDB id
+ *                 example: 27205
+ *               media_type:
  *                 type: string
- *                 example: "user@example.com"
- *               imdbID:
- *                 type: string
- *                 example: "tt1375666"
+ *                 enum: [movie, tv]
+ *                 example: "movie"
  *     responses:
  *       200:
  *         description: Movie removed from watchlist
@@ -352,7 +370,7 @@
  * /api/user/create-user:
  *   post:
  *     summary: Create a new user
- *     description: Adds a user to the database using their email (hashed).
+ *     description: Adds the authenticated user to the database. The user is identified from the access token, not the request body.
  *     tags:
  *       - Users
  *     requestBody:
@@ -361,12 +379,7 @@
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - userID
- *             properties:
- *               userID:
- *                 type: string
- *                 example: "user@example.com"
+ *             properties: {}
  *     responses:
  *       200:
  *         description: User successfully created
@@ -381,7 +394,7 @@
  * /api/user/get-user:
  *   post:
  *     summary: Retrieve user details
- *     description: Fetches user details using the hashed email.
+ *     description: Fetches details for the authenticated user identified by the access token.
  *     tags:
  *       - Users
  *     requestBody:
@@ -390,12 +403,7 @@
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - userID
- *             properties:
- *               userID:
- *                 type: string
- *                 example: "user@example.com"
+ *             properties: {}
  *     responses:
  *       200:
  *         description: User details retrieved successfully
@@ -422,13 +430,9 @@
  *           schema:
  *             type: object
  *             required:
- *               - userID
  *               - firstName
  *               - lastName
  *             properties:
- *               userID:
- *                 type: string
- *                 example: "user@example.com"
  *               firstName:
  *                 type: string
  *                 example: "John"

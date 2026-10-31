@@ -1,164 +1,45 @@
-import { useMemo } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "../redux/store";
 import { useTranslation } from "react-i18next";
 
-import { Typography, Stack, Box, useTheme, CircularProgress } from "@mui/material";
-import BackButton from "../components/common/BackButton";
 import WhatshotIcon from '@mui/icons-material/Whatshot';
 
 import Carousel from "../components/featured/Carousel";
+import CarouselSkeleton from "../components/featured/CarouselSkeleton";
+import PageHeader from "../components/common/PageHeader";
 
 import { FeaturedMovie } from "../types";
 import { EmblaOptionsType } from "embla-carousel";
 
+const OPTIONS: EmblaOptionsType = { loop: true, align: 'start', dragFree: true };
+
+// Order of the carousels on the page; `tag` matches the featured data.
+const SECTIONS = [
+    { tag: 'Trending', title: 'trending.new_and_trending' },
+    { tag: 'Romcoms', title: 'trending.romcoms' },
+    { tag: 'Horror Sensations', title: 'trending.horror_sensations' },
+    { tag: 'Hidden Gems', title: 'trending.hidden_gems' },
+    { tag: 'Sci-Fi & Fantasy Hits', title: 'trending.sci_fi_and_fantasy' },
+];
+
 const Featured = () => {
-    const theme = useTheme();
     const { t } = useTranslation();
-
-    const OPTIONS: EmblaOptionsType = { loop: true };
     const loading = useSelector((store: RootState) => store.featured.loading);
-
-    const SLIDES: FeaturedMovie[] = useSelector((store: RootState) => store.featured.movies);
-
-    const SLIDES_TRENDING = useMemo(
-        () => SLIDES.filter((movie) => movie.tag === 'Trending'),
-        [SLIDES]
-    );
-
-    const SLIDES_HORROR = useMemo(
-        () => SLIDES.filter((movie) => movie.tag === 'Horror Sensations'),
-        [SLIDES]
-    );
-
-    const SLIDES_ROMCOM = useMemo(
-        () => SLIDES.filter((movie) => movie.tag === 'Romcoms'),
-        [SLIDES]
-    );
-
-    const SLIDES_HIDDEN_GEMS = useMemo(
-        () => SLIDES.filter((movie) => movie.tag === 'Hidden Gems'),
-        [SLIDES]
-    );
-
-    const SLIDES_SCIFI_FANTASY = useMemo(
-        () => SLIDES.filter((movie) => movie.tag === 'Sci-Fi & Fantasy Hits'),
-        [SLIDES]
-    );
-
+    const movies: FeaturedMovie[] = useSelector((store: RootState) => store.featured.movies);
 
     return (
         <>
-            <BackButton />
-            <Stack className="test" direction='row' gap={2} sx={{
-                justifyContent: "center",
-                alignItems: "center",
-                mb: '4rem',
-            }}>
-                <WhatshotIcon color="primary" fontSize="large" />
-                <Typography variant="h4" sx={{ fontSize: "clamp(1rem, 2vw, 2rem)", textTransform: 'uppercase', fontWeight: 600, color: theme.palette.primary.main }}>{t("trending.explore_all_the_buzz_here")}</Typography>
-                <WhatshotIcon color="primary" fontSize="large" />
-            </Stack >
-
-            <Stack gap={2} sx={{
-                justifyContent: "center",
-                alignItems: "center",
-                mb: '3rem',
-            }}>
-                <Typography variant="h4" sx={{ fontWeight: 600, fontSize: "clamp(1rem, 2vw, 1.4rem)" }}>{t("trending.new_and_trending")}</Typography>
-                {!loading ? <Carousel slides={SLIDES_TRENDING} options={OPTIONS} /> :
-                    <Box component='div' sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        minHeight: "28rem",
-                        width: "100%"
-                    }}>
-                        <CircularProgress color="primary" sx={{ mb: '2rem' }} />
-                    </Box>
-                }
-            </Stack>
-
-            <Stack gap={2} sx={{
-                justifyContent: "center",
-                alignItems: "center",
-                mb: '3rem'
-            }}>
-                <Typography variant="h4" sx={{ fontWeight: 600, fontSize: "clamp(1rem, 2vw, 1.4rem)" }}>{t("trending.romcoms")}</Typography>
-                {!loading ? <Carousel options={OPTIONS} slides={SLIDES_ROMCOM} /> :
-                    <Box component='div' sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        minHeight: "28rem",
-                        width: "100%"
-                    }}>
-                        <CircularProgress color="primary" sx={{ mb: '2rem' }} />
-                    </Box>
-                }
-            </Stack>
-
-            <Stack gap={2} sx={{
-                justifyContent: "center",
-                alignItems: "center",
-                mb: '3rem'
-            }}>
-                <Typography variant="h4" sx={{ fontWeight: 600, fontSize: "clamp(1rem, 2vw, 1.4rem)" }}>{t("trending.horror_sensations")}</Typography>
-                {!loading ? <Carousel slides={SLIDES_HORROR} options={OPTIONS} /> :
-                    <Box component='div' sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        minHeight: "28rem",
-                        width: "100%"
-                    }}>
-                        <CircularProgress color="primary" sx={{ mb: '2rem' }} />
-                    </Box>
-                }
-            </Stack>
-
-            <Stack gap={2} sx={{
-                justifyContent: "center",
-                alignItems: "center",
-                mb: '3rem'
-            }}>
-                <Typography variant="h4" sx={{ fontWeight: 600, fontSize: "clamp(1rem, 2vw, 1.4rem)" }}>{t("trending.hidden_gems")}</Typography>
-                {!loading ? <Carousel slides={SLIDES_HIDDEN_GEMS} options={OPTIONS} /> :
-                    <Box component='div' sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        minHeight: "28rem",
-                        width: "100%"
-                    }}>
-                        <CircularProgress color="primary" sx={{ mb: '2rem' }} />
-                    </Box>
-                }
-            </Stack>
-
-            <Stack gap={2} sx={{
-                justifyContent: "center",
-                alignItems: "center",
-                mb: '3rem'
-            }}>
-                <Typography variant="h4" sx={{ fontWeight: 600, fontSize: "clamp(1rem, 2vw, 1.4rem)" }}>{t("trending.sci_fi_and_fantasy")}</Typography>
-                {!loading ? <Carousel slides={SLIDES_SCIFI_FANTASY} options={OPTIONS} /> :
-                    <Box component='div' sx={{
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        minHeight: "28rem",
-                        width: "100%"
-                    }}>
-                        <CircularProgress color="primary" sx={{ mb: '2rem' }} />
-                    </Box>
-                }
-            </Stack>
+            <PageHeader
+                icon={<WhatshotIcon color="primary" />}
+                title={t("header.featured")}
+                subtitle={t("trending.explore_all_the_buzz_here")}
+            />
+            {SECTIONS.map(({ tag, title }) => {
+                const slides = movies.filter((movie) => movie.tag === tag);
+                if (loading) return <CarouselSkeleton key={tag} />;
+                if (slides.length === 0) return null;
+                return <Carousel key={tag} title={t(title)} slides={slides} options={OPTIONS} />;
+            })}
         </>
     );
 };

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { TextField, Button, Select, MenuItem, FormControl, InputLabel, IconButton, useTheme, Tooltip } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import { TextField, Button, Select, MenuItem, FormControl, InputLabel, IconButton, useTheme, Tooltip, Box, InputAdornment } from '@mui/material';
 import CloseIcon from "@mui/icons-material/Close";
+import SearchIcon from "@mui/icons-material/Search";
 
 type SearchBarProps = {
     title: string;
@@ -20,18 +20,50 @@ function SearchBar({ title, setTitle, year, setYear, type, setType, resetSearchB
     const theme = useTheme();
 
     return (
-        <Grid container spacing={4} size={{ xs: 4 }} sx={{ alignItems: 'center', justifyContent: 'center' }}>
-            <TextField sx={{
-                minWidth: { xs: '100%', sm: "100%", md: '8rem' },
-                fontWeight: 600
-            }} label={t("search.search_title")} value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                    handleSearch();
-                }
-            }} />
-            <FormControl sx={{ minWidth: { xs: '100%', sm: '100%', md: '12rem' } }}>
+        <Box
+            component="form"
+            role="search"
+            onSubmit={(event: React.FormEvent) => {
+                event.preventDefault();
+                handleSearch();
+            }}
+            sx={{
+                display: 'grid',
+                gap: 2,
+                alignItems: 'center',
+                // Phones: stacked. Tablets: title on its own row. Desktop: one row.
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto' },
+                '& > .search-title': { gridColumn: { sm: '1 / -1', md: 'auto' } },
+            }}
+        >
+            <TextField
+                className="search-title"
+                label={t("search.search_title")}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                fullWidth
+                slotProps={{
+                    input: {
+                        startAdornment: (
+                            <InputAdornment position="start">
+                                <SearchIcon sx={{ color: theme.palette.text.primary, opacity: 0.6 }} />
+                            </InputAdornment>
+                        ),
+                        endAdornment: title ? (
+                            <InputAdornment position="end">
+                                <Tooltip title={t("search.clear")}>
+                                    <IconButton onClick={resetSearchBar} aria-label={t("search.clear")} edge="end">
+                                        <CloseIcon sx={{ color: theme.palette.text.primary }} />
+                                    </IconButton>
+                                </Tooltip>
+                            </InputAdornment>
+                        ) : undefined,
+                    },
+                }}
+            />
+            <FormControl fullWidth>
                 <InputLabel id="year-label">{t("search.year")}</InputLabel>
-                <Select id="year" labelId="year-label" label="Year" value={year} onChange={(e) => setYear(e.target.value)}>
+                <Select id="year" labelId="year-label" label={t("search.year")} value={year} onChange={(e) => setYear(e.target.value)}>
                     <MenuItem value="All Years">{t("search.all_years")}</MenuItem>
                     {Array.from({ length: 50 }, (_, i) => {
                         const year = new Date().getFullYear() - i;
@@ -43,28 +75,22 @@ function SearchBar({ title, setTitle, year, setYear, type, setType, resetSearchB
                     })}
                 </Select>
             </FormControl>
-            <FormControl sx={{ minWidth: { xs: '100%', sm: '100%', md: '12rem' } }}>
+            <FormControl fullWidth>
                 <InputLabel id="filter-type-label">{t("search.type")}</InputLabel>
-                <Select id="filter-type" labelId="filter-type-label" label="Type" value={type} onChange={(e) => setType(e.target.value)}>
+                <Select id="filter-type" labelId="filter-type-label" label={t("search.type")} value={type} onChange={(e) => setType(e.target.value)}>
                     <MenuItem value='None'>{t("search.none")}</MenuItem>
                     <MenuItem value="movie">{t("search.movies")}</MenuItem>
-                    <MenuItem value="series">{t("search.series")}</MenuItem>
-                    <MenuItem value="episode">{t("search.episode")}</MenuItem>
+                    <MenuItem value="tv">{t("search.series")}</MenuItem>
                 </Select>
             </FormControl>
-            <Tooltip title='Clear search'>
-                <IconButton onClick={resetSearchBar} aria-label="clear fields">
-                    <CloseIcon sx={{ color: theme.palette.text.primary }} />
-                </IconButton>
-            </Tooltip>
-            <Button size="large"
-                sx={{
-                    fontSize: { sm: "0.8rem", lg: '1rem' },
-                    padding: { xs: "6px 12px", sm: "8px 16px", md: "10px 20px", lg: "12px 24px" },
-                    minWidth: { xs: "100%", sm: "100px", md: "120px", lg: "150px" },
-                    fontWeight: 600
-                }} variant="contained" onClick={handleSearch}>{t("search.search")}</Button>
-        </Grid>
+            <Button
+                type="submit"
+                variant="contained"
+                sx={{ gridColumn: { sm: '1 / -1', md: 'auto' }, height: 40, px: 3 }}
+            >
+                {t("search.search")}
+            </Button>
+        </Box>
     )
 }
 

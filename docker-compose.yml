@@ -1,0 +1,51 @@
+# Local full stack: Postgres + API + Vite dev server.
+# Requires backend/.env and frontend/.env (copy from the .env.example files).
+services:
+  db:
+    # Postgres with pgvector preinstalled (used by the spin wheel mood search).
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: moviesync
+      POSTGRES_PASSWORD: moviesync
+      POSTGRES_DB: moviesync
+    ports:
+      # 5433 avoids clashing with a Postgres already running on the host.
+      - '5433:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U moviesync -d moviesync']
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  api:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://moviesync:moviesync@db:5432/moviesync
+      # Local database, no SSL; also selects the *_DEV URLs in the API.
+      NODE_ENV: development
+      PORT: '80'
+      CORS_ORIGINS: http://localhost:5173
+    ports:
+      - '${API_PORT:-80}:80'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: node:24-alpine
+    working_dir: /app
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 5173"
+    volumes:
+      - ./frontend:/app
+      # Keep container-installed modules separate from the host's.
+      - /app/node_modules
+    ports:
+      - '5173:5173'
+    depends_on:
+      - api
+
+volumes:
+  db-data:

@@ -1,19 +1,12 @@
 import React from 'react';
-
-type PaletteKeys =
-  | 'classic'
-  | 'fantasy'
-  | 'horror'
-  | 'indie'
-  | 'theatre'
-  | 'melodic_haze';
+import { PaletteKey } from './palettes';
 
 interface ThemeContextType {
-  changePalette: (newPalette: PaletteKeys) => void;
-  selectedPalette: PaletteKeys;
+  changePalette: (newPalette: PaletteKey) => void;
+  selectedPalette: PaletteKey;
 }
 
 export const ThemeContext = React.createContext<ThemeContextType>({
   changePalette: () => {},
-  selectedPalette: 'indie',
+  selectedPalette: 'horror',
 });

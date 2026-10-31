@@ -137,3 +137,11 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Downloaded embedding model files
+.model-cache
+
+# Playwright output
+frontend/e2e/results/
+frontend/e2e/screenshots/
+frontend/playwright-report/

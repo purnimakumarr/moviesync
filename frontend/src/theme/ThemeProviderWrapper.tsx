@@ -1,7 +1,8 @@
-import { createTheme, Palette, ThemeProvider } from '@mui/material/styles';
+import { alpha, createTheme, responsiveFontSizes, ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import React, { useMemo, useState } from 'react';
 import { ThemeContext } from './ThemeContext';
+import { PaletteKey, PALETTES } from './palettes';
 
 declare module "@mui/material/styles" {
     interface TypeBackground {
@@ -18,10 +19,17 @@ declare module "@mui/material/styles" {
         watchedIcon: string;
         favouriteIcon: string;
         iconsColor: string;
+        // Inactive favourite / watch later / watched buttons, when iconsColor
+        // (ink for the header and other themed bars) is not legible on them.
+        listIconColor?: string;
         iconsBackground: string;
         iconsBackgroundHover: string;
         headerIconsBackground: string;
         searchBarBg: string;
+        // Single data hue for charts; validated (lightness, chroma, >=3:1
+        // contrast) against this theme's surface.
+        chart: string;
+        chart2: string;
         background: TypeBackground;
         text: TypeText;
     }
@@ -30,168 +38,141 @@ declare module "@mui/material/styles" {
         watchedIcon?: string;
         favouriteIcon?: string;
         iconsColor?: string;
+        listIconColor?: string;
         iconsBackground?: string;
         iconsBackgroundHover?: string;
         headerIconsBackground?: string;
         searchBarBg?: string;
+        chart?: string;
+        chart2?: string;
     }
 }
 
-type PaletteKeys = 'classic' | 'fantasy' | 'horror' | 'indie' | 'theatre' | 'melodic_haze';
+const DEFAULT_PALETTE: PaletteKey = 'horror';
 
-const palettes: Record<PaletteKeys, object> = {
-    fantasy: {
-        primary: { main: '#7B1FA2' },
-        secondary: { main: '#CFA1E1' },
-        searchBarBg: '#FFEBEE',
-        iconsColor: '#F3E5F5',
-        iconsBackground: '#7B1FA2',
-        iconsBackgroundHover: '#4A0E61',
-        headerIconsBackground: '#4A0E61',
-        background: { default: '#FFEBEE', primary: '#FFDFEF', secondary: '#6A1B9A', paper: '#FFEBEE', },
-        text: { primary: '#000000', secondary: '#000000', tertiary: '#ffffff' },
-        watchLaterIcon: "#FFD700",
-        watchedIcon: "#00C853",
-        favouriteIcon: "#FF1744"
-    },
-    indie: {
-        primary: { main: '#795548' },
-        secondary: { main: '#FFDCD6' },
-        searchBarBg: '#FFEBEE',
-        iconsColor: '#EFEBE9',
-        iconsBackground: '#4E342E',
-        iconsBackgroundHover: "#3E2723",
-        headerIconsBackground: '#3E2723',
-        background: { default: '#FFEBEE', primary: '#D7CCC8', secondary: '#4E342E', paper: '#FFEBEE' },
-        text: { primary: '#121212', secondary: '#121212', tertiary: '#EFEBE9' },
-        watchLaterIcon: "#FFD700",
-        watchedIcon: "#00C853",
-        favouriteIcon: "#FF1744"
-    },
-    horror: {
-        primary: { main: '#B71C1C' },
-        secondary: { main: '#DE8585' },
-        searchBarBg: '#212121',
-        iconsColor: '#ffffff',
-        iconsBackground: '#313131',
-        iconsBackgroundHover: '#212121',
-        headerIconsBackground: '#000000',
-        background: { default: '#212121', primary: '#484848', secondary: '#000000', paper: '#212121' },
-        text: { primary: '#FFEBEE', secondary: '#FFEBEE', tertiary: '#FFEBEE' },
-        watchLaterIcon: "#FFD700",
-        watchedIcon: "#00C853",
-        favouriteIcon: "#D50000"
-    },
-    theatre: {
-        primary: { main: '#FF9800' },
-        secondary: { main: '#FFD699' },
-        searchBarBg: '#FFEBEE',
-        iconsColor: '#121212',
-        iconsBackground: '#FF9800',
-        iconsBackgroundHover: "#E68900",
-        headerIconsBackground: '#E65100',
-        background: { default: '#FFEBEE', primary: '#FFEFD6', secondary: '#FF9800', paper: '#FFEBEE' },
-        text: { primary: '#121212', secondary: '#121212', tertiary: '#121212' },
-        watchLaterIcon: "#FFD700",
-        watchedIcon: "#00C853",
-        favouriteIcon: "#D50000"
-    },
-    classic: {
-        primary: { main: '#1B1B1B' },
-        secondary: { main: '#A1A1A1' },
-        searchBarBg: '#f5f5f5',
-        iconsColor: '#D1D1D1',
-        iconsBackground: '#252525',
-        iconsBackgroundHover: "#000000",
-        headerIconsBackground: '#4F4F4F',
-        background: { default: '#f5f5f5', primary: '#D1D1D1', secondary: '#4F4F4F', paper: '#f5f5f5' },
-        text: { primary: '#1B1B1B', secondary: '#1B1B1B', tertiary: '#D1D1D1' },
-        watchLaterIcon: "#FFD700",
-        watchedIcon: "#00C853",
-        favouriteIcon: "#FF1744"
-    },
-    melodic_haze: {
-        primary: { main: '#3D0301' },
-        secondary: { main: '#E9889D' },
-        searchBarBg: '#F9E5EB',
-        iconsColor: '#F3E5F5',
-        iconsBackground: '#630F1C',
-        iconsBackgroundHover: '#3D0301',
-        headerIconsBackground: '#B03052',
-        background: { default: '#FFEBEE', primary: '#F9E5EB', secondary: '#B03052', paper: '#FFEBEE' },
-        text: { primary: '#000000', secondary: '#000000', tertiary: '#ffffff' },
-        watchLaterIcon: "#FFD700",
-        watchedIcon: "#00C853",
-        favouriteIcon: "#FF1744"
+const storedPalette = (): PaletteKey => {
+    try {
+        const stored = localStorage.getItem('palette');
+        return stored && stored in PALETTES ? (stored as PaletteKey) : DEFAULT_PALETTE;
+    } catch {
+        return DEFAULT_PALETTE;
     }
 };
 
 const ThemeProviderWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [palette, setPalette] = useState<PaletteKeys>(() => {
-        return localStorage.getItem('palette') as PaletteKeys || 'horror' as PaletteKeys
-    });
+    const [palette, setPalette] = useState<PaletteKey>(storedPalette);
 
-    const changePalette = (newPalette: PaletteKeys) => {
+    const changePalette = (newPalette: PaletteKey) => {
         setPalette(newPalette);
+        try {
+            localStorage.setItem('palette', newPalette);
+        } catch {
+            // Private mode or blocked storage: the choice just won't persist.
+        }
     };
 
-    const selectedPalette = palettes[palette] as Palette;
+    const theme = useMemo(() => {
+        const options = PALETTES[palette];
+        const isDark = options.mode === 'dark';
+        const colours = options as typeof options & {
+            primary: { main: string };
+            background: { default: string; primary: string };
+            text: { primary: string; secondary: string };
+        };
+        const ink = colours.text.primary;
+        // Fields sit on cards, so they take the page colour on dark themes
+        // and white on light ones.
+        const fieldBg = isDark ? colours.background.default : '#FFFFFF';
+        const surface = isDark ? colours.background.primary : '#FFFFFF';
+        const accent = colours.primary.main;
 
-    const theme = useMemo(
-        () => createTheme({
-            palette: {
-                ...palettes[palette]
-            },
+        // responsiveFontSizes scales headings down on small screens.
+        return responsiveFontSizes(createTheme({
+            palette: options,
+            // A compact type scale: MUI's defaults (34px page titles, 16px body)
+            // felt oversized, especially on laptops.
             typography: {
                 fontFamily: "'DM Sans', sans-serif",
+                h1: { fontSize: '3rem' },
+                h2: { fontSize: '2.25rem' },
+                h3: { fontSize: '1.875rem', fontWeight: 800 },
+                h4: { fontSize: '1.625rem', fontWeight: 800 },
+                h5: { fontSize: '1.25rem', fontWeight: 700 },
+                h6: { fontSize: '1.0625rem', fontWeight: 700 },
+                body1: { fontSize: '0.9375rem' },
+                body2: { fontSize: '0.875rem' },
+                button: { fontSize: '0.875rem', fontWeight: 700, textTransform: 'none' },
+                overline: { fontSize: '0.75rem' },
             },
             components: {
+                MuiCssBaseline: {
+                    styleOverrides: {
+                        // Visible keyboard focus everywhere, in the theme colour.
+                        ':focus-visible': {
+                            outline: `3px solid ${accent}`,
+                            outlineOffset: '2px',
+                        },
+                        html: {
+                            // Keep anchored content clear of the sticky header.
+                            scrollPaddingTop: '80px',
+                        },
+                    },
+                },
+                MuiTooltip: {
+                    styleOverrides: {
+                        // MUI's default 11px tooltip text is hard to read.
+                        tooltip: { fontSize: '0.8125rem' },
+                    },
+                },
                 MuiOutlinedInput: {
                     styleOverrides: {
                         root: {
-                            backgroundColor: palette === 'horror' as PaletteKeys ? '#121212' : '#ffffff',
-                            borderRadius: "12px",
-                            border: 'none',
+                            backgroundColor: fieldBg,
+                            borderRadius: "10px",
+                            "& .MuiOutlinedInput-notchedOutline": {
+                                borderColor: alpha(ink, isDark ? 0.18 : 0.2),
+                            },
                             "&:hover .MuiOutlinedInput-notchedOutline": {
-                                borderColor: selectedPalette.primary,
+                                borderColor: accent,
                             },
                             "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                                borderColor: selectedPalette.primary,
+                                borderColor: accent,
                             },
                         },
                         input: {
-                            color: palette === 'horror' as PaletteKeys ? '#ffffff' : '#121212',
+                            color: ink,
                             fontWeight: 500
                         },
                     },
                 },
                 MuiSelect: {
+                    defaultProps: { size: 'small' },
                     styleOverrides: {
                         icon: {
-                            color: palette === 'horror' as PaletteKeys ? '#ffffff' : '#121212',
+                            color: ink,
                         },
                         root: {
-                            backgroundColor: palette === 'horror' as PaletteKeys ? '#121212' : '#ffffff',
-                            borderRadius: "12px",
-                            color: palette === 'horror' as PaletteKeys ? '#ffffff' : '#121212',
-                            border: 'none',
+                            backgroundColor: fieldBg,
+                            borderRadius: "10px",
+                            color: ink,
                         },
                     },
                 },
                 MuiInputLabel: {
                     styleOverrides: {
                         root: {
-                            color: palette === 'horror' as PaletteKeys ? '#ffffff' : '#121212',
-                            fontWeight: 500
-
+                            color: colours.text.secondary,
+                            fontWeight: 500,
+                            "&.Mui-focused": { color: ink },
                         },
                     },
                 },
                 MuiPaper: {
                     styleOverrides: {
                         root: {
-                            backgroundColor: palette === 'horror' as PaletteKeys ? '#000000' : '#ffffff',
-                            color: palette === 'horror' as PaletteKeys ? '#ffffff' : '#121212',
+                            backgroundColor: surface,
+                            backgroundImage: 'none',
+                            color: ink,
                             borderRadius: "12px",
                         },
                     },
@@ -199,15 +180,13 @@ const ThemeProviderWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
                 MuiMenuItem: {
                     styleOverrides: {
                         root: {
-                            fontSize: "16px",
-                            color: palette === 'horror' as PaletteKeys ? '#ffffff' : '#121212',
+                            fontSize: "0.9375rem",
+                            color: ink,
                             "&:hover": {
-                                backgroundColor: palette === 'horror' as PaletteKeys ? '#000000' : '#ffffff',
-                                color: palette === 'horror' as PaletteKeys ? '#ffffff' : '#121212',
+                                backgroundColor: alpha(accent, 0.12),
                             },
-                            "&.Mui-selected": {
-                                backgroundColor: palette === 'horror' as PaletteKeys ? '#000000' : '#ffffff',
-                                color: palette === 'horror' as PaletteKeys ? '#ffffff' : '#121212',
+                            "&.Mui-selected, &.Mui-selected:hover": {
+                                backgroundColor: alpha(accent, 0.2),
                             },
                         },
                     },
@@ -215,17 +194,24 @@ const ThemeProviderWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
                 MuiButton: {
                     styleOverrides: {
                         root: {
-                            borderRadius: "12px",
-                            padding: "12px 24px",
-                            fontWeight: "bold",
+                            borderRadius: "10px",
+                            fontWeight: 700,
                             borderWidth: '2px',
+                            boxShadow: 'none',
                         },
+                        sizeSmall: { padding: '4px 12px', fontSize: '0.8125rem' },
+                        sizeMedium: { padding: '7px 16px' },
+                        sizeLarge: { padding: '9px 22px', fontSize: '0.9375rem' },
                     },
                 },
+                // Compact form controls (40px instead of 56px) everywhere.
+                MuiTextField: { defaultProps: { size: 'small' } },
+                MuiFormControl: { defaultProps: { size: 'small' } },
+                MuiChip: { styleOverrides: { root: { fontWeight: 600 } } },
+                MuiToolbar: { styleOverrides: { root: { minHeight: 56 } } },
             },
-        }),
-        [palette, selectedPalette.primary]
-    );
+        }));
+    }, [palette]);
 
     return (
         <ThemeContext.Provider value={{ changePalette, selectedPalette: palette }}>

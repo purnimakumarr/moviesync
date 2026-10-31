@@ -9,13 +9,17 @@ import {
   deleteWatch,
   getById,
   getFavourites,
+  getFeatured,
   getTrending,
   getWatched,
   getWatchLater,
-  getWheelCandidates,
   removeFavourite,
   search,
 } from '../controllers/movieControllers';
+import {
+  getSmartPicks,
+  getWheelCandidates,
+} from '../controllers/wheelControllers';
 import { rateLimit } from 'express-rate-limit';
 import verifyToken from '../middleware/authMiddleware';
 import {
@@ -28,19 +32,31 @@ const router = express.Router();
 const searchLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 10,
+  // Integration tests send many requests from one IP.
+  skip: () => process.env.NODE_ENV === 'test',
   message: 'rate_limiter.error_too_many_requests_search',
 });
 
 const movieActionLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 20,
+  // Integration tests send many requests from one IP.
+  skip: () => process.env.NODE_ENV === 'test',
   message: 'rate_limiter.error_too_many_requests_edit',
 });
 
 router.post('/search', searchLimiter, search);
 router.post('/getById', getById);
 router.get('/trending', searchLimiter, getTrending);
+router.get('/featured', searchLimiter, getFeatured);
 router.post('/wheel/candidates', searchLimiter, getWheelCandidates);
+router.post(
+  '/wheel/smart',
+  searchLimiter,
+  verifyToken,
+  decryptMiddleware,
+  getSmartPicks,
+);
 
 /**
  * Favourite Movies Routes

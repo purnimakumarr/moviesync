@@ -19,14 +19,14 @@ function AppRoutes() {
                 <Route path="/" element={<Layout />}>
                     <Route index element={<Home />} />
                     <Route path="search" element={<Search />} />
-                    <Route path="movie/:imdbID" element={<MoviePage />} />
+                    <Route path="movie/:mediaType/:id" element={<MoviePage />} />
                     <Route path="featured" element={<Featured />} />
+                    <Route path="spin-wheel" element={<SpinWheel />} />
                     <Route element={<ProtectedRoutes />}>
                         <Route path="user" element={<UserProfile />} />
                         <Route path="favourites" element={<Favourites />} />
                         <Route path="watch-later" element={<WatchLaterPage />} />
                         <Route path="watched" element={<Watched />} />
-                        <Route path="spin-wheel" element={<SpinWheel />} />
                     </Route>
                 </Route>
             </Routes>
