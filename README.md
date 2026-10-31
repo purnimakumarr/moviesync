@@ -223,7 +223,7 @@ MovieSync has a separate frontend and backend.
    docker compose up --build
    ```
 
-   This starts PostgreSQL (with pgvector) on port 5433, the API on port 80 (set `API_PORT` to change it) and the frontend on http://localhost:5173. The API applies database migrations on startup and downloads the embedding model (about 33 MB) the first time.
+   This starts PostgreSQL (with pgvector) on port 5433, the API on port 80 (set `API_PORT` to change it) and the frontend on http://localhost:5173. Migrations are not run automatically, so apply the schema yourself first (see below). The API downloads the embedding model (about 33 MB) the first time.
 
 ## Without Docker
 
@@ -259,7 +259,7 @@ npm run migrate:tmdb-ids       # looks up every saved title on TMDB
 npm run migrate                # makes the TMDB ids the keys
 ```
 
-The script removes titles that TMDB does not know and lists them. If a request fails, for example because of a network error, it removes nothing; run it again. The last migration refuses to run while any row is still missing its TMDB id. The Docker image runs `npm run migrate` on start, so with Docker the API will not start until these steps are done. Use `docker compose run --rm api npx node-pg-migrate up 1 -m migrations`, then `docker compose run --rm api node dist/scripts/migrateToTmdb.js`, then start as usual.
+The script removes titles that TMDB does not know and lists them. If a request fails, for example because of a network error, it removes nothing; run it again. The last migration refuses to run while any row is still missing its TMDB id. The Docker image does not run migrations or contain the migrations folder; apply them yourself from `backend/` with the commands above.
 
 ---
 
