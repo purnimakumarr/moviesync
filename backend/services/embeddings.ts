@@ -54,9 +54,6 @@ export const embedQuery = async (query: string) =>
 export const embedMovies = (movies: EmbeddableMovie[]) =>
   embedTexts(movies.map(movieEmbeddingText));
 
-// pgvector's text format: '[0.1,0.2,...]'
-export const toSqlVector = (vector: number[]) => `[${vector.join(',')}]`;
-
 export const warmUpEmbeddings = () =>
   getExtractor().then(
     () => console.log(`Embedding model ready: ${MODEL}`),

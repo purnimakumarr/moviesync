@@ -1,17 +1,19 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { alice, authedPost, pool, resetDatabase, seedMovies } from './helpers';
+import { alice, authedPost, pool, resetDatabase, serveTmdb } from './helpers';
 
 const ids = (movies: { id: number; media_type: string }[]) =>
   movies.map((movie) => `${movie.media_type}-${movie.id}`).sort();
 
+const TITLES = [
+  { id: 1, title: 'First' },
+  { id: 2, title: 'Second' },
+  // Same TMDB id as First, but a different title.
+  { id: 1, media_type: 'tv' as const, title: 'First Show' },
+];
+
 beforeEach(async () => {
   await resetDatabase();
-  await seedMovies([
-    { id: 1, title: 'First' },
-    { id: 2, title: 'Second' },
-    // Same TMDB id as First, but a different title.
-    { id: 1, media_type: 'tv', title: 'First Show' },
-  ]);
+  serveTmdb(TITLES);
 });
 
 afterAll(() => pool.end());
@@ -77,6 +79,20 @@ describe('favourites', () => {
     expect(ids(list.data.movies)).toEqual(['movie-1']);
   });
 
+  it('leaves out a title TMDB cannot return, keeping the saved record', async () => {
+    await authedPost('/api/favourite/add', alice, { id: 1, media_type: 'movie' });
+    await authedPost('/api/favourite/add', alice, { id: 2, media_type: 'movie' });
+
+    serveTmdb(TITLES, { failing: /^\/movie\/2$/ });
+    const during = await authedPost('/api/favourite/list', alice);
+    expect(ids(during.data.movies)).toEqual(['movie-1']);
+    expect(during.data.length).toBe(1);
+
+    serveTmdb(TITLES);
+    const after = await authedPost('/api/favourite/list', alice);
+    expect(ids(after.data.movies)).toEqual(['movie-1', 'movie-2']);
+  });
+
   it('requires a TMDB id and media type', async () => {
     for (const body of [{}, { id: 1 }, { id: 1, media_type: 'series' }, { id: 'abc', media_type: 'movie' }]) {
       const { status } = await authedPost('/api/favourite/add', alice, body);
@@ -111,6 +127,18 @@ describe('watch later and watched', () => {
     const watched = await authedPost('/api/watched/list', alice);
     expect(later.data.movies).toEqual([]);
     expect(ids(watched.data.movies)).toEqual(['movie-2']);
+  });
+
+  it('leaves out titles TMDB cannot return from both lists', async () => {
+    await authedPost('/api/watch-later/add', alice, { id: 1, media_type: 'movie' });
+    await authedPost('/api/watched/add', alice, { id: 2, media_type: 'movie' });
+
+    serveTmdb(TITLES, { failing: /^\/movie\// });
+
+    const later = await authedPost('/api/watch-later/list', alice);
+    const watched = await authedPost('/api/watched/list', alice);
+    expect(later.data.movies).toEqual([]);
+    expect(watched.data.movies).toEqual([]);
   });
 
   it('removes a movie with watch/delete', async () => {

@@ -72,7 +72,7 @@
  * /api/featured:
  *   get:
  *     summary: Live titles for the Featured page carousels
- *     description: TMDB trending and discover results, 10 per carousel, tagged Trending, Romcoms, Horror Sensations, Hidden Gems or Sci-Fi & Fantasy Hits. Cached for 6 hours.
+ *     description: TMDB trending and discover results, 10 per carousel, tagged Trending, Romcoms, Horror Sensations, Hidden Gems or Sci-Fi & Fantasy Hits.
  *     tags: [Movies]
  *     responses:
  *       200:

@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import pool from '../db';
-import { cacheMovie, movieFromCacheRow } from '../services/movieCache';
 import {
   discover,
   getDetails,
@@ -27,25 +26,26 @@ export const fetchTitle = async (
   id: number,
 ): Promise<TmdbTitle | { id: number; media_type: MediaType; error: string }> => {
   try {
-    const cachedMovie = await pool.query(
-      'SELECT * FROM movie_cache WHERE media_type = $1 AND tmdb_id = $2',
-      [mediaType, id],
-    );
-
-    if (cachedMovie.rows.length > 0) {
-      return movieFromCacheRow(cachedMovie.rows[0]);
-    }
-
     const details = await getDetails(mediaType, id);
     if (!details) {
       return { id, media_type: mediaType, error: 'Movie not found!' };
     }
-    await cacheMovie(details);
     return details;
   } catch (error) {
     console.error(`Error fetching details for ${mediaType} ${id}:`, error);
     return { id, media_type: mediaType, error: 'Failed to fetch data' };
   }
+};
+
+// Titles TMDB cannot return right now are left out, so one failure does not
+// put a broken entry in a list.
+const fetchAvailableTitles = async (
+  rows: { media_type: MediaType; tmdb_id: number }[],
+): Promise<TmdbTitle[]> => {
+  const titles = await Promise.all(
+    rows.map((row) => fetchTitle(row.media_type, row.tmdb_id)),
+  );
+  return titles.filter((title): title is TmdbTitle => !('error' in title));
 };
 
 // TMDB always returns 20 results per search page.
@@ -147,13 +147,12 @@ export const getTrending = async (
         SELECT tmdb_id, media_type, created_at FROM user_movies_yn085
       )
       SELECT
-        mc.*,
+        activity.tmdb_id,
+        activity.media_type,
         COUNT(*)::int AS activity_count,
         MAX(activity.created_at) AS latest_activity_at
       FROM activity
-      JOIN movie_cache mc
-        ON mc.media_type = activity.media_type AND mc.tmdb_id = activity.tmdb_id
-      GROUP BY mc.media_type, mc.tmdb_id
+      GROUP BY activity.media_type, activity.tmdb_id
       ORDER BY
         SUM(
           CASE
@@ -166,14 +165,24 @@ export const getTrending = async (
       LIMIT 20
     `);
 
-    const movies = result.rows.map((row) => ({
-      ...movieFromCacheRow(row),
-      tag: 'Trending',
-      activityCount: row.activity_count,
-      latestActivityAt: row.latest_activity_at,
-    }));
+    // Promise.all keeps the ranked order.
+    const movies = await fetchAvailableTitles(result.rows);
+    const activity = new Map(
+      result.rows.map((row) => [`${row.media_type}-${row.tmdb_id}`, row]),
+    );
 
-    res.status(200).json({ success: true, movies });
+    res.status(200).json({
+      success: true,
+      movies: movies.map((movie) => {
+        const row = activity.get(`${movie.media_type}-${movie.id}`);
+        return {
+          ...movie,
+          tag: 'Trending',
+          activityCount: row.activity_count,
+          latestActivityAt: row.latest_activity_at,
+        };
+      }),
+    });
   } catch (error) {
     console.error('Error fetching trending movies:', error);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -181,7 +190,6 @@ export const getTrending = async (
 };
 
 const FEATURED_PER_SECTION = 10;
-const FEATURED_TTL_MS = 6 * 60 * 60 * 1000;
 
 const yearsAgo = (years: number) => {
   const date = new Date();
@@ -216,59 +224,31 @@ const FEATURED_SECTIONS: { tag: string; fetch: () => Promise<TmdbTitle[]> }[] = 
   },
 ];
 
-let featuredCache: { movies: TmdbTitle[]; expiresAt: number } | null = null;
-
-export const resetFeaturedCache = () => {
-  featuredCache = null;
-};
-
-// Featured titles also seed movie_cache, which the spin wheel draws from.
-const cacheNewTitles = async (movies: TmdbTitle[]) => {
-  const keys = movies.map((movie) => `${movie.media_type}-${movie.id}`);
-  const cached = await pool.query(
-    `SELECT media_type || '-' || tmdb_id AS key FROM movie_cache
-     WHERE (media_type || '-' || tmdb_id) = ANY($1::text[])`,
-    [keys],
-  );
-  const known = new Set(cached.rows.map((row) => row.key));
-  const fresh = movies.filter((movie) => !known.has(`${movie.media_type}-${movie.id}`));
-  await Promise.all(
-    fresh.map(async (movie) => cacheMovie(await getDetails(movie.media_type, movie.id))),
-  );
-};
-
 export const getFeatured = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
-    if (!featuredCache || featuredCache.expiresAt < Date.now()) {
-      const sections = await Promise.all(
-        FEATURED_SECTIONS.map(({ fetch }) => fetch().catch(() => [])),
-      );
+    const sections = await Promise.all(
+      FEATURED_SECTIONS.map(({ fetch }) => fetch().catch(() => [])),
+    );
 
-      // A title appears only in the first section that has it.
-      const seen = new Set<string>();
-      const movies = sections.flatMap((results, index) => {
-        const picked = results
-          .filter((movie) => !seen.has(`${movie.media_type}-${movie.id}`))
-          .slice(0, FEATURED_PER_SECTION);
-        picked.forEach((movie) => seen.add(`${movie.media_type}-${movie.id}`));
-        return picked.map((movie) => ({ ...movie, tag: FEATURED_SECTIONS[index].tag }));
-      });
+    // A title appears only in the first section that has it.
+    const seen = new Set<string>();
+    const movies = sections.flatMap((results, index) => {
+      const picked = results
+        .filter((movie) => !seen.has(`${movie.media_type}-${movie.id}`))
+        .slice(0, FEATURED_PER_SECTION);
+      picked.forEach((movie) => seen.add(`${movie.media_type}-${movie.id}`));
+      return picked.map((movie) => ({ ...movie, tag: FEATURED_SECTIONS[index].tag }));
+    });
 
-      if (movies.length === 0) {
-        res.status(502).json({ success: false, error: 'Featured titles are unavailable' });
-        return;
-      }
-
-      featuredCache = { movies, expiresAt: Date.now() + FEATURED_TTL_MS };
-      cacheNewTitles(movies).catch((error) =>
-        console.error('Error caching featured titles:', error),
-      );
+    if (movies.length === 0) {
+      res.status(502).json({ success: false, error: 'Featured titles are unavailable' });
+      return;
     }
 
-    res.status(200).json({ success: true, movies: featuredCache.movies });
+    res.status(200).json({ success: true, movies });
   } catch (error) {
     console.error('Error fetching featured movies:', error);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -336,9 +316,7 @@ export const getFavourites = async (
       return;
     }
 
-    const movieDetails = await Promise.all(
-      result.rows.map((row) => fetchTitle(row.media_type, row.tmdb_id)),
-    );
+    const movieDetails = await fetchAvailableTitles(result.rows);
     res.status(200).json({ movies: movieDetails, length: movieDetails.length });
   } catch (error) {
     res.status(500).json({ error: 'Internal Server Error' });
@@ -539,9 +517,7 @@ export const getWatched = async (
       return;
     }
 
-    const movieDetails = await Promise.all(
-      result.rows.map((row) => fetchTitle(row.media_type, row.tmdb_id)),
-    );
+    const movieDetails = await fetchAvailableTitles(result.rows);
 
     res.status(200).json({ movies: movieDetails, length: movieDetails.length });
   } catch (error) {
@@ -575,9 +551,7 @@ export const getWatchLater = async (
       return;
     }
 
-    const movieDetails = await Promise.all(
-      result.rows.map((row) => fetchTitle(row.media_type, row.tmdb_id)),
-    );
+    const movieDetails = await fetchAvailableTitles(result.rows);
 
     res.status(200).json({ movies: movieDetails, length: movieDetails.length });
   } catch (error) {

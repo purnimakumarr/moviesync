@@ -15,7 +15,6 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "test:coverage": "vitest run --coverage",
-    "backfill:embeddings": "npm run build && node dist/scripts/backfillEmbeddings.js",
     "migrate:tmdb-ids": "npm run build && node dist/scripts/migrateToTmdb.js"
   },
   "author": "",

@@ -111,12 +111,33 @@ export const getTrending = async (): Promise<TmdbTitle[]> => {
   return data.results.filter((item: any) => isMediaType(item.media_type));
 };
 
+export const discoverPage = async (
+  mediaType: MediaType,
+  params: Record<string, unknown>,
+): Promise<{ results: TmdbTitle[]; total_pages: number }> => {
+  const data = await tmdbGet(`/discover/${mediaType}`, params);
+  return {
+    results: data.results.map((item: any) => ({ ...item, media_type: mediaType })),
+    total_pages: Number(data.total_pages) || 1,
+  };
+};
+
 export const discover = async (
   mediaType: MediaType,
   params: Record<string, unknown>,
-): Promise<TmdbTitle[]> => {
-  const data = await tmdbGet(`/discover/${mediaType}`, params);
-  return data.results.map((item: any) => ({ ...item, media_type: mediaType }));
+): Promise<TmdbTitle[]> => (await discoverPage(mediaType, params)).results;
+
+export type TmdbGenre = { id: number; name: string };
+
+// Movies and TV have separate genre lists, with some IDs and names differing.
+export const getGenres = async (mediaType: MediaType): Promise<TmdbGenre[]> =>
+  (await tmdbGet(`/genre/${mediaType}/list`)).genres;
+
+const KEYWORDS_PER_TERM = 3;
+
+export const searchKeywordIds = async (term: string): Promise<number[]> => {
+  const data = await tmdbGet('/search/keyword', { query: term });
+  return data.results.slice(0, KEYWORDS_PER_TERM).map((keyword: any) => keyword.id);
 };
 
 // Only used to move IMDb-keyed rows over to TMDB IDs.
@@ -132,8 +153,8 @@ export const findByImdbId = async (
 const names = (people: { name: string }[] = [], max = Infinity) =>
   Array.from(new Set(people.map((person) => person.name))).slice(0, max).join(', ');
 
-// Plain-text columns of movie_cache, used by SQL filters, Smart Spin and
-// embeddings; the full TMDB response is stored alongside them.
+// Plain-text fields of a TMDB title, used by Smart Spin and embeddings. List
+// results have no credits, so their director and actors are empty.
 export const summarise = (details: TmdbTitle) => {
   const credits = details.credits ?? details.aggregate_credits ?? {};
   const directors =

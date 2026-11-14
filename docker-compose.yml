@@ -2,7 +2,8 @@
 # Requires backend/.env and frontend/.env (copy from the .env.example files).
 services:
   db:
-    # Postgres with pgvector preinstalled (used by the spin wheel mood search).
+    # Postgres with pgvector preinstalled: an older migration still creates the
+    # extension on a fresh database, though a later one drops it again.
     image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: moviesync
