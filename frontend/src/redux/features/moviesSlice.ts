@@ -37,7 +37,7 @@ export const fetchMovies = createAsyncThunk<
 
     if (!response.data.success) {
       if (response.data.error === 'Movie not found!')
-        return rejectWithValue('search.movie_not_found');
+        return rejectWithValue('search.error_movie_not_found');
 
       return rejectWithValue(response.data.error);
     }
@@ -46,7 +46,7 @@ export const fetchMovies = createAsyncThunk<
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
       return rejectWithValue(
-        error.response?.data || error.message || 'Network Error'
+        error.response?.data || error.message || 'Network Error',
       );
     }
     return rejectWithValue('An unknown error occurred');
