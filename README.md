@@ -66,7 +66,7 @@ Sometimes you know you want to watch something but cannot decide what. The **Spi
 
 It also has two smarter modes, both running entirely on free, self-hosted tools (no paid AI APIs):
 
-- **Mood search**: type something like _"feel-good heist"_ or _"space survival"_ and the wheel picks from titles whose plots match the meaning, not just the keywords. Each movie's title, genre and plot are turned into an embedding by a small open-source model ([bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5)) running inside the API with Transformers.js, and stored in Postgres with **pgvector**. A search is a cosine-similarity query that takes a few milliseconds.
+- **Mood search**: type something like _"feel-good heist"_ or _"space survival"_ and the wheel picks from titles whose plots match the meaning, not just the keywords. The API fetches candidates live from TMDB, using keywords from your mood where it can, then turns each title, genre and plot into an embedding with a small open-source model ([bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5)) running inside the API with Transformers.js, and ranks them by cosine similarity to your mood.
 - **Smart Spin** (signed-in users): builds a taste profile from your lists (favourites count most, then watched, then watch later) and makes titles with your favourite genres, directors and actors more likely to come up. Every pick shows why it was chosen, for example _"Because you saved 2 films by Christopher Nolan"_.
 
 Candidate posters sit on an animated wheel that slows down and stops with the winner under the pointer, followed by a detailed reveal and the rest of the shortlist. It respects the "reduce motion" accessibility setting. If the model is unavailable, the wheel falls back to random picks instead of failing.
@@ -109,17 +109,11 @@ Personal lists are tied to the signed-in user. The frontend signs in with **Open
                          │       │
               ┌──────────▼─┐   ┌▼─────────────┐
               │ PostgreSQL │   │    TMDB API  │
-              │ + pgvector │   │ Movie data   │
-              └──────▲─────┘   └──────────────┘
-                     │ embeddings
-              ┌──────┴──────────────┐
-              │ Embedding model     │
-              │ (Transformers.js,   │
-              │  runs in the API)   │
-              └─────────────────────┘
+              │ User data  │   │ Movie data   │
+              └────────────┘   └──────────────┘
 ```
 
-The frontend handles the user interface and application state. The backend provides API endpoints and handles database operations, while the TMDB API provides movie and TV information. When a movie is cached, the API also stores an embedding of its plot so the spin wheel can search by mood.
+The frontend handles the user interface and application state. The backend provides API endpoints and stores users and their lists, while the TMDB API provides all movie and TV information, fetched live on each request. For mood search, an embedding model running inside the API ranks the titles TMDB returns.
 
 ---
 
@@ -155,7 +149,6 @@ MovieSync has a separate frontend and backend.
 - **Express Rate Limit** – basic API rate limiting
 - **Swagger** – API documentation
 - **Nodemon** – development workflow
-- **pgvector** – vector similarity search in PostgreSQL
 - **Transformers.js** – runs the embedding model locally, no external AI service
 - **node-pg-migrate** – versioned SQL migrations
 
@@ -192,18 +185,13 @@ MovieSync has a separate frontend and backend.
    docker compose up --build
    ```
 
-   This starts PostgreSQL (with pgvector) on port 5433, the API on port 80 (set `API_PORT` to change it) and the frontend on http://localhost:5173. Migrations are not run automatically, so apply the schema yourself first (see below). The API downloads the embedding model (about 33 MB) the first time.
-
-## Without Docker
-
-Requires Node.js 24 and PostgreSQL with the `pgvector` extension (`brew install pgvector` on macOS).
+   This starts PostgreSQL on port 5433, the API on port 80 (set `API_PORT` to change it) and the frontend on http://localhost:5173. Migrations are not run automatically, so apply the schema yourself first (see below). The API downloads the embedding model (about 33 MB) the first time.
 
 ```bash
 # backend
 cd backend
 npm install
 npm run migrate              # create or update the database schema
-npm run backfill:embeddings  # optional: embed movies cached before mood search existed
 npm run serve                # compiles and restarts on changes
 
 # frontend (in another terminal)

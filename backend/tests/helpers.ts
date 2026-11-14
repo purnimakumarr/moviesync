@@ -1,6 +1,8 @@
 import { generateKeyPairSync } from 'crypto';
+import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
+import { vi } from 'vitest';
 import app from '../app';
 import pool from '../db';
 import {
@@ -76,7 +78,7 @@ export const publicPost = (path: string, body: object = {}) =>
 
 export type MediaType = 'movie' | 'tv';
 
-export type CachedMovie = {
+export type FakeTitle = {
   id: number;
   media_type?: MediaType;
   title: string;
@@ -84,44 +86,148 @@ export type CachedMovie = {
   genre?: string;
   director?: string;
   actors?: string;
+  overview?: string;
+  keywords?: { id: number; name: string }[];
 };
 
-// Stores a minimal TMDB details object plus the text columns built from it.
-export const seedMovies = async (movies: CachedMovie[]) => {
-  for (const movie of movies) {
-    const mediaType = movie.media_type ?? 'movie';
-    const year = movie.year ?? '2000';
-    const genre = movie.genre ?? 'Drama';
-    const date = `${year.slice(0, 4)}-01-01`;
-    const details = {
-      id: movie.id,
-      ...(mediaType === 'movie'
-        ? { title: movie.title, release_date: date }
-        : { name: movie.title, first_air_date: date }),
-      genres: genre.split(', ').map((name) => ({ name })),
-    };
-    await pool.query(
-      `INSERT INTO movie_cache (tmdb_id, media_type, details, title, year, genre, type, director, actors)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [
-        movie.id,
-        mediaType,
-        details,
-        movie.title,
-        year,
-        genre,
-        mediaType,
-        movie.director ?? '',
-        movie.actors ?? '',
-      ],
-    );
-  }
+// A small part of TMDB's real genre lists.
+export const TMDB_GENRES: Record<MediaType, { id: number; name: string }[]> = {
+  movie: [
+    { id: 28, name: 'Action' },
+    { id: 12, name: 'Adventure' },
+    { id: 35, name: 'Comedy' },
+    { id: 80, name: 'Crime' },
+    { id: 18, name: 'Drama' },
+    { id: 10749, name: 'Romance' },
+    { id: 878, name: 'Science Fiction' },
+    { id: 53, name: 'Thriller' },
+  ],
+  tv: [
+    { id: 10759, name: 'Action & Adventure' },
+    { id: 35, name: 'Comedy' },
+    { id: 80, name: 'Crime' },
+    { id: 18, name: 'Drama' },
+    { id: 10765, name: 'Sci-Fi & Fantasy' },
+  ],
 };
+
+const notFound = () =>
+  Object.assign(new Error('Request failed with status code 404'), {
+    isAxiosError: true,
+    response: { status: 404 },
+  });
+
+const mediaTypeOf = (title: FakeTitle) => title.media_type ?? 'movie';
+const genreNames = (title: FakeTitle) => (title.genre ?? 'Drama').split(', ');
+const yearOf = (title: FakeTitle) => title.year ?? '2000';
+const dateOf = (title: FakeTitle) => `${yearOf(title).slice(0, 4)}-01-01`;
+
+const listResult = (title: FakeTitle) => {
+  const mediaType = mediaTypeOf(title);
+  return {
+    id: title.id,
+    ...(mediaType === 'movie'
+      ? { title: title.title, release_date: dateOf(title) }
+      : { name: title.title, first_air_date: dateOf(title) }),
+    overview: title.overview ?? `${title.title} plot`,
+    genre_ids: TMDB_GENRES[mediaType]
+      .filter(({ name }) => genreNames(title).includes(name))
+      .map(({ id }) => id),
+  };
+};
+
+const detailsResponse = (title: FakeTitle) => {
+  const directors = (title.director ?? '').split(', ').filter(Boolean);
+  const cast = (title.actors ?? '').split(', ').filter(Boolean).map((name) => ({ name }));
+  const { genre_ids: _genreIds, ...rest } = listResult(title);
+  return {
+    ...rest,
+    genres: TMDB_GENRES[mediaTypeOf(title)].filter(({ name }) => genreNames(title).includes(name)),
+    ...(mediaTypeOf(title) === 'movie'
+      ? { credits: { cast, crew: directors.map((name) => ({ name, job: 'Director' })) } }
+      : { aggregate_credits: { cast }, created_by: directors.map((name) => ({ name })) }),
+  };
+};
+
+// Applies the same filters TMDB would, so tests see what a query really selects.
+const matchesDiscover = (title: FakeTitle, mediaType: MediaType, params: any) => {
+  const date = dateOf(title);
+  const prefix = mediaType === 'movie' ? 'primary_release_date' : 'first_air_date';
+  const ids = (value: string) => value.split('|').map(Number);
+  return (
+    mediaTypeOf(title) === mediaType &&
+    (!params.with_genres ||
+      listResult(title).genre_ids.some((id) => ids(params.with_genres).includes(id))) &&
+    (!params.with_keywords ||
+      (title.keywords ?? []).some(({ id }) => ids(params.with_keywords).includes(id))) &&
+    (!params[`${prefix}.gte`] || date >= params[`${prefix}.gte`]) &&
+    (!params[`${prefix}.lte`] || date <= params[`${prefix}.lte`])
+  );
+};
+
+export const mockTmdbGet = vi.mocked(axios.get);
+
+// Answers TMDB requests from the given titles. Paths matching `failing` reject.
+export const serveTmdb = (
+  titles: FakeTitle[],
+  { failing, totalPages = 1 }: { failing?: RegExp; totalPages?: number } = {},
+) => {
+  mockTmdbGet.mockReset();
+  mockTmdbGet.mockImplementation((async (url: string, config: any) => {
+    const path = url.replace(`${process.env.TMDB_URL}/3`, '');
+    const params = config?.params ?? {};
+    if (failing?.test(path)) throw new Error(`TMDB is failing: ${path}`);
+
+    const genreList = path.match(/^\/genre\/(movie|tv)\/list$/);
+    if (genreList) return { data: { genres: TMDB_GENRES[genreList[1] as MediaType] } };
+
+    if (path === '/search/keyword') {
+      const keywords = titles.flatMap((title) => title.keywords ?? []);
+      return {
+        data: {
+          results: keywords.filter(({ name }) => name.includes(String(params.query))),
+        },
+      };
+    }
+
+    const discover = path.match(/^\/discover\/(movie|tv)$/);
+    if (discover) {
+      const mediaType = discover[1] as MediaType;
+      return {
+        data: {
+          total_pages: totalPages,
+          results: titles
+            .filter((title) => matchesDiscover(title, mediaType, params))
+            .map(listResult),
+        },
+      };
+    }
+
+    const details = path.match(/^\/(movie|tv)\/(\d+)$/);
+    if (details) {
+      const title = titles.find(
+        (candidate) =>
+          mediaTypeOf(candidate) === details[1] && candidate.id === Number(details[2]),
+      );
+      if (!title) throw notFound();
+      return { data: detailsResponse(title) };
+    }
+
+    throw new Error(`Unexpected TMDB call: ${path}`);
+  }) as never);
+};
+
+// The TMDB requests made so far whose path matches, with their params.
+export const tmdbCalls = (path: RegExp) =>
+  mockTmdbGet.mock.calls
+    .map(([url, config]) => ({
+      path: String(url).replace(`${process.env.TMDB_URL}/3`, ''),
+      params: (config?.params ?? {}) as Record<string, any>,
+    }))
+    .filter((call) => path.test(call.path));
 
 export const resetDatabase = () =>
-  pool.query(
-    'TRUNCATE users_yn085, favourites_yn085, user_movies_yn085, movie_cache',
-  );
+  pool.query('TRUNCATE users_yn085, favourites_yn085, user_movies_yn085');
 
 export { pool };
 
@@ -136,12 +242,6 @@ export const blend = (a: number, b: number, weightA: number) => {
   const weightB = Math.sqrt(1 - weightA * weightA);
   return axis(a).map((value, i) => value * weightA + axis(b)[i] * weightB);
 };
-
-export const setEmbedding = (id: number, vector: number[]) =>
-  pool.query('UPDATE movie_cache SET embedding = $1 WHERE tmdb_id = $2', [
-    `[${vector.join(',')}]`,
-    id,
-  ]);
 
 export const addToList = async (
   user: TestUser,

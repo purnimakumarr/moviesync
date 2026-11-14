@@ -43,7 +43,7 @@ vi.mock('jwks-rsa', () => ({
   },
 }));
 
-// No test should reach TMDB; movies are seeded into movie_cache instead.
+// No test should reach TMDB; tests that need titles use serveTmdb instead.
 vi.mock('axios', () => {
   const offline = () =>
     Promise.reject(new Error('Network access is disabled in tests'));

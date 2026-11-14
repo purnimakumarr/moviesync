@@ -2,8 +2,14 @@ import axios from 'axios';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import app from '../app';
-import { resetFeaturedCache } from '../controllers/movieControllers';
-import { pool, publicPost, resetDatabase, seedMovies } from './helpers';
+import {
+  FakeTitle,
+  pool,
+  publicPost,
+  resetDatabase,
+  serveTmdb,
+  tmdbCalls,
+} from './helpers';
 
 beforeEach(resetDatabase);
 afterAll(() => pool.end());
@@ -22,7 +28,7 @@ const addActivity = async (id: number, daysAgo: number, count = 1) => {
 
 describe('GET /api/trending', () => {
   it('ranks recent activity above older activity', async () => {
-    await seedMovies([
+    serveTmdb([
       { id: 10, title: 'Old Hit' },
       { id: 11, title: 'New Hit' },
       { id: 12, title: 'Never Saved' },
@@ -41,17 +47,28 @@ describe('GET /api/trending', () => {
     expect(response.body.movies[0]).toMatchObject({ id: 11, media_type: 'movie', tag: 'Trending' });
     expect(response.body.movies[1].activityCount).toBe(2);
   });
+
+  it('leaves out titles TMDB cannot return', async () => {
+    serveTmdb([{ id: 11, title: 'New Hit' }], { failing: /^\/movie\/10$/ });
+    await addActivity(10, 1, 2);
+    await addActivity(11, 1, 1);
+
+    const response = await request(app).get('/api/trending');
+
+    expect(response.status).toBe(200);
+    expect(response.body.movies.map((movie: any) => movie.id)).toEqual([11]);
+  });
 });
 
 describe('POST /api/wheel/candidates', () => {
-  beforeEach(() =>
-    seedMovies([
-      { id: 1, title: 'Comedy 90s', genre: 'Comedy', year: '1994' },
-      { id: 2, title: 'Comedy Now', genre: 'Comedy, Romance', year: '2015' },
-      { id: 3, title: 'Thriller', genre: 'Thriller', year: '1996' },
-      { id: 4, title: 'Comedy Show', genre: 'Comedy', media_type: 'tv', year: '1998' },
-    ]),
-  );
+  const TITLES: FakeTitle[] = [
+    { id: 1, title: 'Comedy 90s', genre: 'Comedy', year: '1994' },
+    { id: 2, title: 'Comedy Now', genre: 'Comedy, Romance', year: '2015' },
+    { id: 3, title: 'Thriller', genre: 'Thriller', year: '1996' },
+    { id: 4, title: 'Comedy Show', genre: 'Comedy', media_type: 'tv', year: '1998' },
+  ];
+
+  beforeEach(() => serveTmdb(TITLES));
 
   const candidateIds = async (body: object) => {
     const response = await publicPost('/api/wheel/candidates', body);
@@ -88,6 +105,88 @@ describe('POST /api/wheel/candidates', () => {
     expect(await candidateIds({ limit: 0 })).toHaveLength(4);
     expect(await candidateIds({ limit: -5 })).toHaveLength(1);
   });
+
+  it('matches genres by substring, per media type', async () => {
+    serveTmdb([{ id: 5, title: 'Action Show', genre: 'Action & Adventure', media_type: 'tv' }]);
+
+    expect(await candidateIds({ genres: ['Action'] })).toEqual([5]);
+
+    expect(tmdbCalls(/^\/discover\/movie$/)[0].params.with_genres).toBe('28');
+    expect(tmdbCalls(/^\/discover\/tv$/)[0].params.with_genres).toBe('10759');
+  });
+
+  it('skips a media type that has none of the requested genres', async () => {
+    expect(await candidateIds({ genres: ['Thriller'] })).toEqual([3]);
+    expect(tmdbCalls(/^\/discover\/tv$/)).toEqual([]);
+  });
+
+  it('only queries the requested media type', async () => {
+    await candidateIds({ type: 'movie' });
+    expect(tmdbCalls(/^\/discover\/tv$/)).toEqual([]);
+    expect(tmdbCalls(/^\/genre\/tv\/list$/)).toEqual([]);
+  });
+
+  it('sends the year range and popularity floor for each media type', async () => {
+    await candidateIds({ fromYear: 1990, toYear: 1999 });
+
+    expect(tmdbCalls(/^\/discover\/movie$/)[0].params).toMatchObject({
+      'primary_release_date.gte': '1990-01-01',
+      'primary_release_date.lte': '1999-12-31',
+      'vote_count.gte': 50,
+      sort_by: 'popularity.desc',
+    });
+    expect(tmdbCalls(/^\/discover\/tv$/)[0].params).toMatchObject({
+      'first_air_date.gte': '1990-01-01',
+      'first_air_date.lte': '1999-12-31',
+      'vote_count.gte': 50,
+    });
+  });
+
+  it('adds genre names, which discover results do not have', async () => {
+    const response = await publicPost('/api/wheel/candidates', { genres: ['Thriller'] });
+    expect(response.body.movies[0].genres).toEqual([{ id: 53, name: 'Thriller' }]);
+    expect(response.body.movies[0]).toMatchObject({ id: 3, media_type: 'movie', title: 'Thriller' });
+  });
+
+  it('draws at most 3 random pages from the first 50', async () => {
+    serveTmdb(TITLES, { totalPages: 400 });
+
+    await candidateIds({ type: 'movie' });
+
+    const pages = tmdbCalls(/^\/discover\/movie$/).map((call) => call.params.page);
+    // Page 1 is always requested, to learn how many pages exist.
+    expect(pages[0]).toBe(1);
+    expect(pages.length).toBeLessThanOrEqual(4);
+    expect(Math.max(...pages)).toBeLessThanOrEqual(50);
+  });
+
+  it('removes titles repeated across pages', async () => {
+    serveTmdb(TITLES, { totalPages: 3 });
+    expect(await candidateIds({ type: 'movie' })).toEqual([1, 2, 3]);
+  });
+
+  it('keeps what it can when one media type fails', async () => {
+    serveTmdb(TITLES, { failing: /^\/discover\/tv$/ });
+    expect(await candidateIds({})).toEqual([1, 2, 3]);
+  });
+
+  it('returns no matches, not an error, when no genre applies', async () => {
+    const response = await publicPost('/api/wheel/candidates', { genres: ['Nonsense'] });
+    expect(response.status).toBe(200);
+    expect(response.body.movies).toEqual([]);
+  });
+
+  it('reports an error when TMDB is unreachable', async () => {
+    serveTmdb(TITLES, { failing: /./ });
+    const response = await publicPost('/api/wheel/candidates', {});
+    expect(response.status).toBe(500);
+  });
+
+  it('reports an error when every discover request fails', async () => {
+    serveTmdb(TITLES, { failing: /^\/discover\// });
+    const response = await publicPost('/api/wheel/candidates', {});
+    expect(response.status).toBe(500);
+  });
 });
 
 describe('GET /api/featured', () => {
@@ -112,22 +211,13 @@ describe('GET /api/featured', () => {
       // Every section gets movie 1 (already trending) and 21–32.
       return { data: { results: [item(1), ...Array.from({ length: 12 }, (_, i) => item(21 + i))] } };
     }
-    const details = path.match(/^\/(movie|tv)\/(\d+)$/);
-    if (details) return { data: { ...item(Number(details[2])), genres: [{ name: 'Drama' }] } };
     throw new Error(`Unexpected TMDB call: ${path}`);
   };
 
   beforeEach(() => {
-    resetFeaturedCache();
     mockGet.mockReset();
     mockGet.mockImplementation((async (url: string) => fakeTmdb(url)) as never);
   });
-
-  const waitForCache = (count: number) =>
-    vi.waitFor(async () => {
-      const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM movie_cache');
-      expect(rows[0].n).toBe(count);
-    });
 
   it('returns tagged TMDB titles, each title in one section only', async () => {
     const response = await request(app).get('/api/featured');
@@ -144,20 +234,16 @@ describe('GET /api/featured', () => {
     // Later sections only get what is left.
     expect(byTag('Horror Sensations').map((movie: any) => movie.id)).toEqual([31, 32]);
     expect(byTag('Hidden Gems')).toEqual([]);
-
-    // Featured titles seed movie_cache for the spin wheel.
-    await waitForCache(movies.length);
   });
 
-  it('serves repeat requests from memory', async () => {
-    const first = await request(app).get('/api/featured');
-    await waitForCache(first.body.movies.length);
+  it('fetches live from TMDB on every request', async () => {
+    await request(app).get('/api/featured');
     const callsAfterFirst = mockGet.mock.calls.length;
 
-    const second = await request(app).get('/api/featured');
+    await request(app).get('/api/featured');
 
-    expect(second.body.movies).toEqual(first.body.movies);
-    expect(mockGet.mock.calls.length).toBe(callsAfterFirst);
+    expect(callsAfterFirst).toBeGreaterThan(0);
+    expect(mockGet.mock.calls.length).toBe(callsAfterFirst * 2);
   });
 
   it('reports an error when TMDB is unreachable', async () => {

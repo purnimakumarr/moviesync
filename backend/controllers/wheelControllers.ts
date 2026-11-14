@@ -2,9 +2,14 @@ import { Request, Response } from 'express';
 import * as crypto from 'crypto';
 import pool from '../db';
 import { embedQuery } from '../services/embeddings';
-import { movieFromCacheRow } from '../services/movieCache';
-import { buildTasteProfile, scoreMovie, weightedSample } from '../services/tasteProfile';
-import { queryWheelCandidates } from '../services/wheelCandidates';
+import { buildTasteProfile, scoreMovie, TasteProfile, weightedSample } from '../services/tasteProfile';
+import { getDetails, MediaType, summarise, TmdbTitle } from '../services/tmdb';
+import {
+  fetchWheelCandidates,
+  MOOD_POOL_SIZE,
+  rankByMood,
+  WheelFilters,
+} from '../services/wheelCandidates';
 
 const MAX_MOOD_LENGTH = 200;
 const MAX_PICKS = 10;
@@ -14,6 +19,9 @@ const MOOD_POOL_FACTOR = 3;
 const MIN_MOOD_POOL = 9;
 // Candidates considered by Smart Spin when there is no mood.
 const SMART_POOL_SIZE = 100;
+// List results have no credits, so only this many candidates, drawn by genre
+// match, get a details request for director and actor scoring.
+const SMART_SHORTLIST_SIZE = 20;
 
 const parseMood = (mood: unknown) =>
   typeof mood === 'string' ? mood.trim().slice(0, MAX_MOOD_LENGTH) : '';
@@ -34,6 +42,25 @@ const tryEmbedMood = async (mood: string) => {
 
 const moodReason = (mood: string) => `Close match to "${mood}"`;
 
+const findCandidates = async (
+  filters: WheelFilters,
+  moodText: string,
+  { limit, moodLimit }: { limit: number; moodLimit: number },
+): Promise<{ titles: TmdbTitle[]; moodApplied: boolean }> => {
+  const queryEmbedding = await tryEmbedMood(moodText);
+  if (!queryEmbedding) {
+    return { titles: await fetchWheelCandidates(filters, { limit }), moodApplied: false };
+  }
+
+  const moodPool = await fetchWheelCandidates(filters, { limit: MOOD_POOL_SIZE, mood: moodText });
+  try {
+    return { titles: await rankByMood(moodPool, queryEmbedding, moodLimit), moodApplied: true };
+  } catch (error) {
+    console.error('Embedding candidates failed, ignoring the mood:', error);
+    return { titles: moodPool.slice(0, limit), moodApplied: false };
+  }
+};
+
 export const getWheelCandidates = async (
   req: Request,
   res: Response,
@@ -41,21 +68,19 @@ export const getWheelCandidates = async (
   try {
     const { limit = 24, mood } = req.body;
     const moodText = parseMood(mood);
-    const queryEmbedding = await tryEmbedMood(moodText);
+    const candidateLimit = clamp(limit, 1, 50, 24);
 
-    const rows = await queryWheelCandidates(req.body, {
-      limit: clamp(limit, 1, 50, 24),
-      queryEmbedding,
+    const { titles, moodApplied } = await findCandidates(req.body, moodText, {
+      limit: candidateLimit,
+      moodLimit: candidateLimit,
     });
 
     res.status(200).json({
       success: true,
-      moodApplied: Boolean(queryEmbedding),
-      movies: rows.map((row) => ({
-        ...movieFromCacheRow(row),
-        ...(queryEmbedding
-          ? { similarity: row.similarity, reasons: [moodReason(moodText)] }
-          : {}),
+      moodApplied,
+      movies: titles.map((title) => ({
+        ...title,
+        ...(moodApplied ? { reasons: [moodReason(moodText)] } : {}),
       })),
     });
   } catch (error) {
@@ -63,6 +88,42 @@ export const getWheelCandidates = async (
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+const tryGetDetails = async (mediaType: MediaType, id: number) => {
+  try {
+    return await getDetails(mediaType, id);
+  } catch (error) {
+    console.error(`Error fetching details for ${mediaType} ${id}:`, error);
+    return null;
+  }
+};
+
+type SavedRow = { list: 'favourite' | 'watched' | 'watch_later'; id: number; media_type: MediaType };
+
+const titleKey = ({ media_type, id }: { media_type: MediaType; id: number }) => `${media_type}-${id}`;
+
+// A title on two lists is fetched once but counts for both. Titles TMDB
+// cannot return right now are left out of the profile.
+const buildLiveTasteProfile = async (rows: SavedRow[]) => {
+  const distinct = new Map(rows.map((row) => [titleKey(row), row]));
+  const details = new Map(
+    await Promise.all(
+      Array.from(distinct, async ([key, row]) =>
+        [key, await tryGetDetails(row.media_type, row.id)] as const,
+      ),
+    ),
+  );
+
+  return buildTasteProfile(
+    rows.flatMap((row) => {
+      const title = details.get(titleKey(row));
+      return title ? [{ list: row.list, ...summarise(title) }] : [];
+    }),
+  );
+};
+
+const scoreTitle = (profile: TasteProfile, title: TmdbTitle) =>
+  scoreMovie(profile, { ...summarise(title), details: title });
 
 export const getSmartPicks = async (
   req: Request,
@@ -81,21 +142,15 @@ export const getSmartPicks = async (
     const moodText = parseMood(mood);
     const userIDHash = crypto.createHash('sha256').update(userID).digest('hex');
 
-    const saved = await pool.query(
+    const saved = await pool.query<SavedRow>(
       `
-        SELECT 'favourite' AS list, f.tmdb_id AS id, f.media_type,
-               mc.genre, mc.director, mc.actors
-        FROM favourites_yn085 f
-        LEFT JOIN movie_cache mc
-          ON mc.media_type = f.media_type AND mc.tmdb_id = f.tmdb_id
-        WHERE f.user_id = $1
+        SELECT 'favourite' AS list, tmdb_id AS id, media_type
+        FROM favourites_yn085
+        WHERE user_id = $1
         UNION ALL
-        SELECT um.status AS list, um.tmdb_id AS id, um.media_type,
-               mc.genre, mc.director, mc.actors
-        FROM user_movies_yn085 um
-        LEFT JOIN movie_cache mc
-          ON mc.media_type = um.media_type AND mc.tmdb_id = um.tmdb_id
-        WHERE um.user_id = $1
+        SELECT status AS list, tmdb_id AS id, media_type
+        FROM user_movies_yn085
+        WHERE user_id = $1
       `,
       [userIDHash],
     );
@@ -105,22 +160,37 @@ export const getSmartPicks = async (
       ? req.body.exclude
       : [];
 
-    const queryEmbedding = await tryEmbedMood(moodText);
-    const candidates = await queryWheelCandidates(
-      {
-        ...req.body,
-        exclude: [...requestedExcludes, ...(excludeWatched ? watched : [])],
-      },
-      {
-        limit: queryEmbedding
-          ? Math.max(pickCount * MOOD_POOL_FACTOR, MIN_MOOD_POOL)
-          : SMART_POOL_SIZE,
-        queryEmbedding,
-      },
+    const [{ titles, moodApplied }, profile] = await Promise.all([
+      findCandidates(
+        {
+          ...req.body,
+          exclude: [...requestedExcludes, ...(excludeWatched ? watched : [])],
+        },
+        moodText,
+        {
+          limit: SMART_POOL_SIZE,
+          moodLimit: Math.max(pickCount * MOOD_POOL_FACTOR, MIN_MOOD_POOL),
+        },
+      ),
+      buildLiveTasteProfile(saved.rows),
+    ]);
+
+    const byGenre = titles.map((title) => scoreTitle(profile, title));
+    const shortlist = weightedSample(
+      byGenre,
+      byGenre.map((entry) => entry.score),
+      SMART_SHORTLIST_SIZE,
     );
 
-    const profile = buildTasteProfile(saved.rows);
-    const scored = candidates.map((row) => scoreMovie(profile, row));
+    // If a details request fails the title stays in, scored on genres alone.
+    const scored = await Promise.all(
+      shortlist.map(async ({ movie: { details } }) =>
+        scoreTitle(
+          profile,
+          (await tryGetDetails(details.media_type, details.id)) ?? details,
+        ),
+      ),
+    );
     const picks = weightedSample(
       scored,
       scored.map((entry) => entry.score),
@@ -129,11 +199,11 @@ export const getSmartPicks = async (
 
     res.status(200).json({
       success: true,
-      moodApplied: Boolean(queryEmbedding),
+      moodApplied,
       movies: picks.map(({ movie, reason }) => ({
-        ...movieFromCacheRow(movie),
+        ...movie.details,
         reasons: [
-          ...(queryEmbedding ? [moodReason(moodText)] : []),
+          ...(moodApplied ? [moodReason(moodText)] : []),
           ...(reason ? [reason] : []),
         ],
       })),

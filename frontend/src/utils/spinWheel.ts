@@ -1,8 +1,8 @@
 import { Movie } from '../types';
 import { getGenres, getStartYear, movieKey } from './tmdb';
 
-// Every genre name TMDB returns for movies and TV, which is what movie_cache
-// stores and the backend matches against.
+// Every genre name TMDB returns for movies and TV, which is what the backend
+// matches against.
 export const WHEEL_GENRES = [
   'Action',
   'Action & Adventure',

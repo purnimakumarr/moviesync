@@ -8,14 +8,14 @@ import {
   idTokenFor,
   pool,
   resetDatabase,
-  seedMovies,
+  serveTmdb,
   signWith,
   untrustedPrivateKey,
 } from './helpers';
 
 beforeEach(async () => {
   await resetDatabase();
-  await seedMovies([{ id: 1, title: 'Alice Pick' }]);
+  serveTmdb([{ id: 1, title: 'Alice Pick' }]);
   await authedPost('/api/user/create-user', alice);
   await authedPost('/api/user/create-user', bob);
 });
